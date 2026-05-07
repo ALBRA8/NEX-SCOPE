@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SavedNiche {
+  id          String   @id @default(cuid())
+  nicheId     String
+  nicheName   String
+  category    String
+  nicheScore  Float
+  userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SavedChannel {
+  id           String   @id @default(cuid())
+  channelId    String
+  channelName  String
+  subscribers  Int
+  userId       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  role      String
+  content   String
+  userId    String?
+  createdAt DateTime @default(now())
+}
+
+model ContentPlan {
+  id          String   @id @default(cuid())
+  niche       String
+  audience    String
+  planData    String
+  userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
