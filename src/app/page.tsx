@@ -21,6 +21,7 @@ const CompetitorMatrixView = lazy(() => import('@/components/views/CompetitorMat
 const ContentPlanView = lazy(() => import('@/components/views/ContentPlanView').then(m => ({ default: m.ContentPlanView })));
 const KeywordExplorerView = lazy(() => import('@/components/views/KeywordExplorerView').then(m => ({ default: m.KeywordExplorerView })));
 const AIChatView = lazy(() => import('@/components/views/AIChatView').then(m => ({ default: m.AIChatView })));
+const SettingsView = lazy(() => import('@/components/views/SettingsView').then(m => ({ default: m.SettingsView })));
 
 const viewLabels: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -33,6 +34,7 @@ const viewLabels: Record<string, string> = {
   'content-plan': 'Plan de Contenido',
   'keyword-explorer': 'Explorador de Keywords',
   'ai-chat': 'Asistente IA',
+  'settings': 'Configuración',
 };
 
 function ViewLoadingFallback() {
@@ -60,7 +62,8 @@ function ViewRenderer({ activeView }: { activeView: string }) {
         {activeView === 'content-plan' && <ContentPlanView />}
         {activeView === 'keyword-explorer' && <KeywordExplorerView />}
         {activeView === 'ai-chat' && <AIChatView />}
-        {!['dashboard','niche-finder','trends','channel-analyzer','content-gap','monetization','competitor-matrix','content-plan','keyword-explorer','ai-chat'].includes(activeView) && <DashboardView />}
+        {activeView === 'settings' && <SettingsView />}
+        {!['dashboard','niche-finder','trends','channel-analyzer','content-gap','monetization','competitor-matrix','content-plan','keyword-explorer','ai-chat','settings'].includes(activeView) && <DashboardView />}
       </Suspense>
     </ErrorBoundary>
   );

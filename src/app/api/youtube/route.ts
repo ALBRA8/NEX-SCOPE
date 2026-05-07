@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
-function getApiKey(): string | null {
+async function getApiKey(): Promise<string | null> {
+  // First check the database (set via Settings UI)
+  try {
+    const setting = await db.setting.findUnique({ where: { key: 'YOUTUBE_API_KEY' } });
+    if (setting?.value) return setting.value;
+  } catch {
+    // DB not available, fall through
+  }
+  // Fallback to environment variable
   return process.env.YOUTUBE_API_KEY || null;
 }
 
 // Search for niches/channels/videos
 export async function GET(request: NextRequest) {
-  const apiKey = getApiKey();
+  const apiKey = await getApiKey();
 
   if (!apiKey) {
     return NextResponse.json(
@@ -256,7 +265,7 @@ export async function GET(request: NextRequest) {
 
 // Check API key status
 export async function POST(request: NextRequest) {
-  const apiKey = getApiKey();
+  const apiKey = await getApiKey();
 
   if (!apiKey) {
     return NextResponse.json({ configured: false });

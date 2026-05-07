@@ -27,6 +27,7 @@ import {
   Bot,
   Radar,
   LogOut,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -77,7 +78,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">
-            Navegación
+            Herramientas
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -102,6 +103,35 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">
+            Sistema
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => setActiveView('settings')}
+                  className={cn(
+                    'transition-all duration-200',
+                    activeView === 'settings' && 'bg-primary/10 text-primary font-semibold'
+                  )}
+                  tooltip="Configuración"
+                >
+                  <Settings className={cn(
+                    'w-4 h-4',
+                    activeView === 'settings' && 'text-primary'
+                  )} />
+                  <span className="group-data-[collapsible=icon]:hidden">Configuración</span>
+                  {activeView === 'settings' && (
+                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary group-data-[collapsible=icon]:hidden" />
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

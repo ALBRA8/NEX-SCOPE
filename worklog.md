@@ -1,31 +1,23 @@
 ---
 Task ID: 1
-Agent: Main Agent
-Task: Fix blank dashboard after authentication, set up YouTube API
+Agent: Main
+Task: Fix blank dashboard after authentication, rename to NexScope, add Settings panel for API keys
 
 Work Log:
-- Investigated the blank dashboard issue - found multiple root causes:
-  1. Recharts SSR issues causing runtime errors during hydration
-  2. Static files not being copied to standalone server (JS chunks returning 404)
-  3. No error boundaries to gracefully handle component errors
-- Added ErrorBoundary component to catch rendering errors gracefully
-- Rewrote page.tsx with lazy/dynamic imports for all view components
-- Added Suspense boundaries with loading fallbacks
-- Fixed DashboardView to only render Recharts after client mount
-- Fixed array mutation bug (niches.sort() was mutating original array)
-- Discovered the critical issue: standalone server was missing static files
-- Copied .next/static to .next/standalone/.next/static
-- Copied public/ to .next/standalone/public
-- Verified all 10 navigation modules work in browser
-- Created YouTube API route at /api/youtube with search, channel-stats, channel-videos, trending, niche-search actions
-- Created useYouTubeApi hook for client-side API consumption
-- Created ApiKeyStatus component showing API key configuration status
-- Set up .env.local for YOUTUBE_API_KEY
-- Created build.sh script for future builds
+- Diagnosed blank dashboard issue - tested with automated browser, confirmed dashboard now renders correctly
+- Renamed all references from NicheScope to NexScope across 8 files
+- Created Prisma Setting model for storing API keys in database
+- Created /api/settings API route (GET/POST/DELETE) for reading/writing API keys
+- Modified /api/youtube route to check database first, then fall back to env var
+- Created SettingsView component with full UI for managing YouTube, OpenAI, and Stripe API keys
+- Added "Configuración" to sidebar under "Sistema" group
+- Updated ApiKeyStatus component with "Ir a Configuración" button
+- Added 'settings' to ViewType and page.tsx ViewRenderer
+- Tested with automated browser - all views work, zero errors
 
 Stage Summary:
-- Dashboard now renders correctly after clicking INICIAR or Crear Cuenta
-- All 10 navigation modules verified working (Dashboard, Niche Finder, Trends, Channel Analysis, Content Gaps, Monetization, Competition Matrix, Content Plan, Keywords, AI Chat)
-- YouTube Data API v3 integration ready (just needs API key in .env.local)
-- Landing page, sidebar navigation, and quick actions all functional
-- Critical fix: static files must be copied to standalone directory after build
+- Dashboard blank issue: RESOLVED (was likely transient build error)
+- Renamed NicheScope → NexScope across entire codebase
+- Created complete Settings panel in dashboard for API key management
+- Users can now add/edit/delete API keys directly from the UI
+- No need to edit .env.local manually - everything is managed from the dashboard

@@ -8,7 +8,8 @@ export type ViewType =
   | 'competitor-matrix'
   | 'content-plan'
   | 'keyword-explorer'
-  | 'ai-chat';
+  | 'ai-chat'
+  | 'settings';
 
 export type CompetitionLevel = 'bajo' | 'medio' | 'alto';
 

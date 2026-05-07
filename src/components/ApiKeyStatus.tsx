@@ -1,13 +1,15 @@
 'use client';
 
 import { useYouTubeApi } from '@/hooks/use-youtube-api';
+import { useAppStore } from '@/lib/store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, CheckCircle2, Loader2, KeyRound } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2, KeyRound, Settings } from 'lucide-react';
 
 export function ApiKeyStatus() {
   const { status, refreshStatus } = useYouTubeApi();
+  const setActiveView = useAppStore((s) => s.setActiveView);
 
   if (status.loading) {
     return (
@@ -29,12 +31,17 @@ export function ApiKeyStatus() {
             <div className="flex-1 min-w-0">
               <h4 className="text-sm font-semibold text-amber-600">API de YouTube no configurada</h4>
               <p className="text-xs text-muted-foreground mt-1">
-                Agrega tu <code className="px-1 py-0.5 bg-muted rounded text-xs">YOUTUBE_API_KEY</code> al archivo{' '}
-                <code className="px-1 py-0.5 bg-muted rounded text-xs">.env.local</code> para habilitar datos reales de YouTube.
+                Configura tu API key desde el panel de Configuración para habilitar datos reales de YouTube.
               </p>
-              <div className="mt-2 p-2 bg-muted/50 rounded text-[10px] font-mono text-muted-foreground">
-                YOUTUBE_API_KEY=tu_api_key_aqui
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 text-xs h-8 gap-1.5"
+                onClick={() => setActiveView('settings')}
+              >
+                <Settings className="w-3.5 h-3.5" />
+                Ir a Configuración
+              </Button>
               <p className="text-[10px] text-muted-foreground mt-2">
                 Mientras tanto, se usan datos de demostración.
               </p>
@@ -56,9 +63,25 @@ export function ApiKeyStatus() {
               <p className="text-xs text-muted-foreground mt-1">
                 {status.error || 'La API key no es válida o ha expirado. Verifica tu configuración.'}
               </p>
-              <Button variant="outline" size="sm" className="mt-2 text-xs h-7" onClick={refreshStatus}>
-                Reintentar
-              </Button>
+              <div className="flex gap-2 mt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-8"
+                  onClick={refreshStatus}
+                >
+                  Reintentar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-8 gap-1.5"
+                  onClick={() => setActiveView('settings')}
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  Configuración
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -80,6 +103,14 @@ export function ApiKeyStatus() {
               Datos reales de YouTube disponibles
             </p>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-8 gap-1.5 text-muted-foreground"
+            onClick={() => setActiveView('settings')}
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </Button>
         </div>
       </CardContent>
     </Card>
