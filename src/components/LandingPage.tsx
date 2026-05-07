@@ -5,6 +5,7 @@ import { motion, useInView, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { RegisterModal } from '@/components/auth/RegisterModal';
+import { useAppStore } from '@/lib/store';
 
 function useMounted() {
   return useSyncExternalStore(
@@ -312,6 +313,7 @@ const testimonials = [
 export function LandingPage() {
   const [showLogin, setShowLogin] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
+  const quickStart = useAppStore((s) => s.quickStart);
   const mounted = useMounted();
 
   const switchToRegister = () => {
@@ -363,6 +365,12 @@ export function LandingPage() {
                 onClick={() => setShowRegister(true)}
               >
                 Comenzar Gratis
+              </Button>
+              <Button
+                className="bg-white/10 hover:bg-white/20 text-white font-semibold border border-white/20"
+                onClick={quickStart}
+              >
+                INICIAR
               </Button>
             </div>
           </div>
@@ -425,6 +433,13 @@ export function LandingPage() {
               >
                 Comenzar Gratis
                 <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+              </Button>
+              <Button
+                size="lg"
+                className="bg-white/10 hover:bg-white/20 text-white font-semibold text-base px-8 h-12 rounded-xl border border-white/20"
+                onClick={quickStart}
+              >
+                INICIAR
               </Button>
               <Button
                 size="lg"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -17,7 +17,7 @@ import { ContentPlanView } from '@/components/views/ContentPlanView';
 import { KeywordExplorerView } from '@/components/views/KeywordExplorerView';
 import { AIChatView } from '@/components/views/AIChatView';
 import { Separator } from '@/components/ui/separator';
-import { Radar } from 'lucide-react';
+import { Radar, Loader2 } from 'lucide-react';
 
 const viewLabels: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -79,7 +79,7 @@ function Dashboard() {
           {/* Footer */}
           <footer className="border-t border-border/50 px-4 py-2 text-center">
             <p className="text-[10px] text-muted-foreground">
-              NicheScope © 2026 · Potenciado por IA
+              NicheScope &copy; 2026 &middot; Potenciado por IA
             </p>
           </footer>
         </div>
@@ -88,13 +88,35 @@ function Dashboard() {
   );
 }
 
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary text-primary-foreground animate-pulse">
+          <Radar className="w-7 h-7" />
+        </div>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-sm">Cargando NicheScope...</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
-  const isAuthenticated = useAppStore((s) => s.isAuthenticated);
-  const initAuth = useAppStore((s) => s.initAuth);
+  const { isAuthenticated, isHydrated, initAuth } = useAppStore();
+  const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
+    setHasMounted(true);
     initAuth();
   }, [initAuth]);
+
+  // Show loading until client-side hydration is complete
+  if (!hasMounted || !isHydrated) {
+    return <LoadingScreen />;
+  }
 
   if (!isAuthenticated) {
     return <LandingPage />;

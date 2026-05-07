@@ -21,9 +21,11 @@ interface AppState {
   toggleSidebar: () => void;
   // Auth
   isAuthenticated: boolean;
+  isHydrated: boolean;
   user: UserInfo | null;
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
+  quickStart: () => void;
   logout: () => void;
   initAuth: () => void;
 }
@@ -82,11 +84,14 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   // Auth
   isAuthenticated: false,
+  isHydrated: false,
   user: null,
   initAuth: () => {
     const user = loadUserFromStorage();
     if (user) {
-      set({ isAuthenticated: true, user });
+      set({ isAuthenticated: true, user, isHydrated: true });
+    } else {
+      set({ isHydrated: true });
     }
   },
   login: async (email: string, password: string) => {
@@ -99,7 +104,7 @@ export const useAppStore = create<AppState>((set) => ({
       const data = await res.json();
       if (data.success && data.user) {
         saveUserToStorage(data.user);
-        set({ isAuthenticated: true, user: data.user });
+        set({ isAuthenticated: true, user: data.user, isHydrated: true });
         return true;
       }
       return false;
@@ -117,13 +122,22 @@ export const useAppStore = create<AppState>((set) => ({
       const data = await res.json();
       if (data.success && data.user) {
         saveUserToStorage(data.user);
-        set({ isAuthenticated: true, user: data.user });
+        set({ isAuthenticated: true, user: data.user, isHydrated: true });
         return true;
       }
       return false;
     } catch {
       return false;
     }
+  },
+  quickStart: () => {
+    const guestUser = {
+      id: 'guest',
+      name: 'Invitado',
+      email: 'invitado@nichescope.app',
+    };
+    saveUserToStorage(guestUser);
+    set({ isAuthenticated: true, user: guestUser, isHydrated: true });
   },
   logout: () => {
     saveUserToStorage(null);

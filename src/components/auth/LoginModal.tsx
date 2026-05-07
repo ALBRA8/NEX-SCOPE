@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Dialog,
   DialogContent,
@@ -40,7 +40,9 @@ export function LoginModal({ onClose, onSwitchToRegister }: LoginModalProps) {
     setLoading(true);
     try {
       const success = await login(email, password);
-      if (!success) {
+      if (success) {
+        onClose();
+      } else {
         setError('Email o contraseña incorrectos');
       }
     } catch {
