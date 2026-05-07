@@ -14,7 +14,7 @@ import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ZAxis,
 } from 'recharts';
-import { Gap, Loader2, Lightbulb, Search, ArrowRight } from 'lucide-react';
+import { Puzzle, Loader2, Lightbulb, Search, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
@@ -89,7 +89,7 @@ export function ContentGapView() {
               onChange={(e) => setNiche(e.target.value)}
             />
             <Button onClick={handleAnalyze} disabled={loading}>
-              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Gap className="w-4 h-4 mr-2" />}
+              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Puzzle className="w-4 h-4 mr-2" />}
               Analizar Brechas
             </Button>
           </div>

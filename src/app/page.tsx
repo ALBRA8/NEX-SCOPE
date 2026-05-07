@@ -1,9 +1,11 @@
 'use client';
 
+import { useEffect } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useAppStore } from '@/lib/store';
+import { LandingPage } from '@/components/LandingPage';
 import { DashboardView } from '@/components/views/DashboardView';
 import { NicheFinderView } from '@/components/views/NicheFinderView';
 import { TrendsView } from '@/components/views/TrendsView';
@@ -46,8 +48,8 @@ function ViewRenderer({ activeView }: { activeView: string }) {
   }
 }
 
-export default function Home() {
-  const { activeView } = useAppStore();
+function Dashboard() {
+  const activeView = useAppStore((s) => s.activeView);
 
   return (
     <SidebarProvider>
@@ -84,4 +86,19 @@ export default function Home() {
       </div>
     </SidebarProvider>
   );
+}
+
+export default function Home() {
+  const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+  const initAuth = useAppStore((s) => s.initAuth);
+
+  useEffect(() => {
+    initAuth();
+  }, [initAuth]);
+
+  if (!isAuthenticated) {
+    return <LandingPage />;
+  }
+
+  return <Dashboard />;
 }

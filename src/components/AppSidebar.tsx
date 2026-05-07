@@ -19,22 +19,25 @@ import {
   Search,
   TrendingUp,
   Tv,
-  Gap,
+  Puzzle,
   DollarSign,
   Swords,
   CalendarDays,
   KeyRound,
   Bot,
   Radar,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const menuItems: { id: ViewType; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'niche-finder', label: 'Buscador de Nichos', icon: Search },
   { id: 'trends', label: 'Tendencias', icon: TrendingUp },
   { id: 'channel-analyzer', label: 'Análisis de Canal', icon: Tv },
-  { id: 'content-gap', label: 'Brechas de Contenido', icon: Gap },
+  { id: 'content-gap', label: 'Brechas de Contenido', icon: Puzzle },
   { id: 'monetization', label: 'Estimador Monetización', icon: DollarSign },
   { id: 'competitor-matrix', label: 'Matriz de Competencia', icon: Swords },
   { id: 'content-plan', label: 'Plan de Contenido', icon: CalendarDays },
@@ -43,7 +46,19 @@ const menuItems: { id: ViewType; label: string; icon: React.ElementType }[] = [
 ];
 
 export function AppSidebar() {
-  const { activeView, setActiveView } = useAppStore();
+  const { activeView, setActiveView, user, logout } = useAppStore();
+
+  const userInitials = user?.name
+    ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+    : user?.email
+      ? user.email[0].toUpperCase()
+      : '?';
+
+  const userEmail = user?.email
+    ? user.email.length > 20
+      ? user.email.slice(0, 20) + '...'
+      : user.email
+    : '';
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50">
@@ -93,7 +108,44 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4">
-        <div className="group-data-[collapsible=icon]:hidden">
+        {/* User info */}
+        <div className="group-data-[collapsible=icon]:hidden mb-3">
+          <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="bg-emerald-500/20 text-emerald-600 text-xs font-semibold">
+                {userInitials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">
+                {user?.name || 'Usuario'}
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate">
+                {userEmail}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full mt-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 justify-start gap-2 text-xs"
+            onClick={logout}
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Cerrar Sesión
+          </Button>
+        </div>
+
+        {/* Collapsed icon mode - just show avatar */}
+        <div className="hidden group-data-[collapsible=icon]:flex flex-col items-center gap-2">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="bg-emerald-500/20 text-emerald-600 text-xs font-semibold">
+              {userInitials}
+            </AvatarFallback>
+          </Avatar>
+        </div>
+
+        <div className="group-data-[collapsible=icon]:hidden mt-2">
           <p className="text-[10px] text-muted-foreground text-center">
             NicheScope © 2026
           </p>
