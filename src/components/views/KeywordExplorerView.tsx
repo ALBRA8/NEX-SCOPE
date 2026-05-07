@@ -32,7 +32,7 @@ export function KeywordExplorerView() {
     });
   }, [search, minVolume, maxComp]);
 
-  const selected = keywords.find(k => kw.keyword === selectedKeyword);
+  const selected = keywords.find(k => k.keyword === selectedKeyword);
   const trendData = selected
     ? selected.trend.map((v, i) => ({ mes: months[i], volumen: v }))
     : null;
