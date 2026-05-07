@@ -1,8 +1,10 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { StatCard } from '@/components/shared/StatCard';
 import { niches, channels, trendData } from '@/lib/mock-data';
 import { useAppStore } from '@/lib/store';
+import { ApiKeyStatus } from '@/components/ApiKeyStatus';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
@@ -14,15 +16,21 @@ import {
   Target, TrendingUp, DollarSign, Users,
   Search, Zap, ArrowRight,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 export function DashboardView() {
   const { setActiveView } = useAppStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    // Use requestAnimationFrame to ensure DOM is ready for Recharts
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   const trendingNiches = niches.filter(n => n.trending).length;
   const avgRPM = (niches.reduce((a, n) => a + n.estimatedRPM, 0) / niches.length).toFixed(2);
 
-  const nicheScores = niches
+  const nicheScores = [...niches]
     .sort((a, b) => b.nicheScore - a.nicheScore)
     .slice(0, 8)
     .map(n => ({ name: n.name.length > 15 ? n.name.substring(0, 15) + '...' : n.name, puntuacion: n.nicheScore }));
@@ -38,10 +46,15 @@ export function DashboardView() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Dashboard</h2>
-        <p className="text-muted-foreground text-sm">Resumen general del análisis de nichos de YouTube</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Dashboard</h2>
+          <p className="text-muted-foreground text-sm">Resumen general del análisis de nichos de YouTube</p>
+        </div>
       </div>
+
+      {/* API Key Status */}
+      <ApiKeyStatus />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -75,14 +88,10 @@ export function DashboardView() {
         />
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Bar Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
+      {/* Charts Row - Only render after mount to avoid Recharts SSR issues */}
+      {mounted && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Bar Chart */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Nichos más Rentables</CardTitle>
@@ -102,14 +111,8 @@ export function DashboardView() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-        </motion.div>
 
-        {/* Line Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
+          {/* Line Chart */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Tendencias de Crecimiento</CardTitle>
@@ -130,18 +133,27 @@ export function DashboardView() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-        </motion.div>
-      </div>
+        </div>
+      )}
+
+      {/* Chart loading placeholder */}
+      {!mounted && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base">Nichos más Rentables</CardTitle></CardHeader>
+            <CardContent><div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">Cargando gráfico...</div></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base">Tendencias de Crecimiento</CardTitle></CardHeader>
+            <CardContent><div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">Cargando gráfico...</div></CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Recent Niches Table + Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent niches */}
-        <motion.div
-          className="lg:col-span-2"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
+        <div className="lg:col-span-2">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Nichos Recientes</CardTitle>
@@ -173,14 +185,10 @@ export function DashboardView() {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
 
         {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
+        <div>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Acciones Rápidas</CardTitle>
@@ -209,7 +217,7 @@ export function DashboardView() {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

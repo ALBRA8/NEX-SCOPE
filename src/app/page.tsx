@@ -1,23 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useAppStore } from '@/lib/store';
 import { LandingPage } from '@/components/LandingPage';
-import { DashboardView } from '@/components/views/DashboardView';
-import { NicheFinderView } from '@/components/views/NicheFinderView';
-import { TrendsView } from '@/components/views/TrendsView';
-import { ChannelAnalyzerView } from '@/components/views/ChannelAnalyzerView';
-import { ContentGapView } from '@/components/views/ContentGapView';
-import { MonetizationView } from '@/components/views/MonetizationView';
-import { CompetitorMatrixView } from '@/components/views/CompetitorMatrixView';
-import { ContentPlanView } from '@/components/views/ContentPlanView';
-import { KeywordExplorerView } from '@/components/views/KeywordExplorerView';
-import { AIChatView } from '@/components/views/AIChatView';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Separator } from '@/components/ui/separator';
 import { Radar, Loader2 } from 'lucide-react';
+
+// Dynamic imports for views that use Recharts (SSR issues)
+const DashboardView = lazy(() => import('@/components/views/DashboardView').then(m => ({ default: m.DashboardView })));
+const NicheFinderView = lazy(() => import('@/components/views/NicheFinderView').then(m => ({ default: m.NicheFinderView })));
+const TrendsView = lazy(() => import('@/components/views/TrendsView').then(m => ({ default: m.TrendsView })));
+const ChannelAnalyzerView = lazy(() => import('@/components/views/ChannelAnalyzerView').then(m => ({ default: m.ChannelAnalyzerView })));
+const ContentGapView = lazy(() => import('@/components/views/ContentGapView').then(m => ({ default: m.ContentGapView })));
+const MonetizationView = lazy(() => import('@/components/views/MonetizationView').then(m => ({ default: m.MonetizationView })));
+const CompetitorMatrixView = lazy(() => import('@/components/views/CompetitorMatrixView').then(m => ({ default: m.CompetitorMatrixView })));
+const ContentPlanView = lazy(() => import('@/components/views/ContentPlanView').then(m => ({ default: m.ContentPlanView })));
+const KeywordExplorerView = lazy(() => import('@/components/views/KeywordExplorerView').then(m => ({ default: m.KeywordExplorerView })));
+const AIChatView = lazy(() => import('@/components/views/AIChatView').then(m => ({ default: m.AIChatView })));
 
 const viewLabels: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -32,20 +35,35 @@ const viewLabels: Record<string, string> = {
   'ai-chat': 'Asistente IA',
 };
 
+function ViewLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <div className="flex flex-col items-center gap-3">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <p className="text-sm text-muted-foreground">Cargando vista...</p>
+      </div>
+    </div>
+  );
+}
+
 function ViewRenderer({ activeView }: { activeView: string }) {
-  switch (activeView) {
-    case 'dashboard': return <DashboardView />;
-    case 'niche-finder': return <NicheFinderView />;
-    case 'trends': return <TrendsView />;
-    case 'channel-analyzer': return <ChannelAnalyzerView />;
-    case 'content-gap': return <ContentGapView />;
-    case 'monetization': return <MonetizationView />;
-    case 'competitor-matrix': return <CompetitorMatrixView />;
-    case 'content-plan': return <ContentPlanView />;
-    case 'keyword-explorer': return <KeywordExplorerView />;
-    case 'ai-chat': return <AIChatView />;
-    default: return <DashboardView />;
-  }
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={<ViewLoadingFallback />}>
+        {activeView === 'dashboard' && <DashboardView />}
+        {activeView === 'niche-finder' && <NicheFinderView />}
+        {activeView === 'trends' && <TrendsView />}
+        {activeView === 'channel-analyzer' && <ChannelAnalyzerView />}
+        {activeView === 'content-gap' && <ContentGapView />}
+        {activeView === 'monetization' && <MonetizationView />}
+        {activeView === 'competitor-matrix' && <CompetitorMatrixView />}
+        {activeView === 'content-plan' && <ContentPlanView />}
+        {activeView === 'keyword-explorer' && <KeywordExplorerView />}
+        {activeView === 'ai-chat' && <AIChatView />}
+        {!['dashboard','niche-finder','trends','channel-analyzer','content-gap','monetization','competitor-matrix','content-plan','keyword-explorer','ai-chat'].includes(activeView) && <DashboardView />}
+      </Suspense>
+    </ErrorBoundary>
+  );
 }
 
 function Dashboard() {
@@ -55,7 +73,7 @@ function Dashboard() {
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <AppSidebar />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           {/* Header */}
           <header className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-sm border-b border-border/50">
             <div className="flex items-center gap-3">
@@ -65,7 +83,7 @@ function Dashboard() {
                 <div className="hidden sm:flex items-center justify-center w-6 h-6 rounded-md bg-primary text-primary-foreground">
                   <Radar className="w-3.5 h-3.5" />
                 </div>
-                <h1 className="text-sm font-semibold">{viewLabels[activeView]}</h1>
+                <h1 className="text-sm font-semibold">{viewLabels[activeView] || 'Dashboard'}</h1>
               </div>
             </div>
             <ThemeToggle />
@@ -122,5 +140,9 @@ export default function Home() {
     return <LandingPage />;
   }
 
-  return <Dashboard />;
+  return (
+    <ErrorBoundary>
+      <Dashboard />
+    </ErrorBoundary>
+  );
 }
