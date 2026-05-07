@@ -30,7 +30,7 @@ interface AppState {
   initAuth: () => void;
 }
 
-const STORAGE_KEY = 'nichescope_user';
+const STORAGE_KEY = 'nexscope_user';
 
 function loadUserFromStorage(): UserInfo | null {
   if (typeof window === 'undefined') return null;
@@ -134,7 +134,7 @@ export const useAppStore = create<AppState>((set) => ({
     const guestUser = {
       id: 'guest',
       name: 'Invitado',
-      email: 'invitado@nichescope.app',
+      email: 'invitado@nexscope.app',
     };
     saveUserToStorage(guestUser);
     set({ isAuthenticated: true, user: guestUser, isHydrated: true });

@@ -63,7 +63,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: LoginModalProps) {
           </div>
           <DialogTitle className="text-center text-xl">Bienvenido de vuelta</DialogTitle>
           <DialogDescription className="text-center text-gray-400">
-            Inicia sesión en tu cuenta de NicheScope
+            Inicia sesión en tu cuenta de NexScope
           </DialogDescription>
         </DialogHeader>
 

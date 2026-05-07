@@ -68,7 +68,7 @@ export function AppSidebar() {
             <Radar className="w-5 h-5" />
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
-            <h1 className="font-bold text-lg leading-none">NicheScope</h1>
+            <h1 className="font-bold text-lg leading-none">NexScope</h1>
             <p className="text-[10px] text-muted-foreground">YouTube Niche Finder</p>
           </div>
         </div>
@@ -147,7 +147,7 @@ export function AppSidebar() {
 
         <div className="group-data-[collapsible=icon]:hidden mt-2">
           <p className="text-[10px] text-muted-foreground text-center">
-            NicheScope © 2026
+            NexScope © 2026
           </p>
         </div>
       </SidebarFooter>

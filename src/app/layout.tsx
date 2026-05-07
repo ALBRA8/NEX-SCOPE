@@ -15,10 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NicheScope - AI-Powered YouTube Niche Finder",
+  title: "NexScope - AI-Powered YouTube Niche Finder",
   description: "Descubre nichos rentables de YouTube con análisis potenciado por IA. Encuentra oportunidades, analiza canales y crea estrategias de contenido.",
   keywords: ["YouTube", "nicho", "IA", "análisis", "contenido", "monetización"],
-  authors: [{ name: "NicheScope" }],
+  authors: [{ name: "NexScope" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },

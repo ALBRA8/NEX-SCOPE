@@ -97,7 +97,7 @@ function Dashboard() {
           {/* Footer */}
           <footer className="border-t border-border/50 px-4 py-2 text-center">
             <p className="text-[10px] text-muted-foreground">
-              NicheScope &copy; 2026 &middot; Potenciado por IA
+              NexScope &copy; 2026 &middot; Potenciado por IA
             </p>
           </footer>
         </div>
@@ -115,7 +115,7 @@ function LoadingScreen() {
         </div>
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="w-4 h-4 animate-spin" />
-          <span className="text-sm">Cargando NicheScope...</span>
+          <span className="text-sm">Cargando NexScope...</span>
         </div>
       </div>
     </div>

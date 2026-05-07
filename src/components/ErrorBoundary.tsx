@@ -23,7 +23,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('[NicheScope ErrorBoundary]', error, errorInfo);
+    console.error('[NexScope ErrorBoundary]', error, errorInfo);
   }
 
   render() {

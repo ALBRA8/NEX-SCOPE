@@ -71,7 +71,7 @@ export function AIChatView() {
         <CardHeader className="pb-2 border-b">
           <CardTitle className="text-base flex items-center gap-2">
             <Bot className="w-5 h-5 text-primary" />
-            Asistente NicheScope
+            Asistente NexScope
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 p-4 overflow-y-auto custom-scrollbar">

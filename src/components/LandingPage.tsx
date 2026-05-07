@@ -85,7 +85,7 @@ function DashboardMockup() {
             <div className="w-3 h-3 rounded-full bg-green-500/80" />
           </div>
           <div className="flex-1 h-7 rounded-md bg-white/5 flex items-center px-3">
-            <span className="text-[10px] text-gray-500">nichescope.app/dashboard</span>
+            <span className="text-[10px] text-gray-500">nexscope.app/dashboard</span>
           </div>
         </div>
 
@@ -303,7 +303,7 @@ const testimonials = [
     initials: 'LP',
   },
   {
-    quote: 'Dejé de perder tiempo investigando nichos manualmente. NicheScope lo hace en segundos.',
+    quote: 'Dejé de perder tiempo investigando nichos manualmente. NexScope lo hace en segundos.',
     name: 'Diego R.',
     niche: 'Canal de Gaming',
     initials: 'DR',
@@ -344,7 +344,7 @@ export function LandingPage() {
                 <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500 text-white">
                   <Radar className="w-5 h-5" />
                 </div>
-                <span className="font-bold text-lg">NicheScope</span>
+                <span className="font-bold text-lg">NexScope</span>
               </div>
               <div className="hidden md:flex items-center gap-6">
                 <a href="#features" className="text-sm text-gray-400 hover:text-white transition-colors">Funcionalidades</a>
@@ -417,7 +417,7 @@ export function LandingPage() {
               transition={{ duration: 0.7, delay: 0.2 }}
               className="mt-6 text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed"
             >
-              Potenciado por inteligencia artificial, NicheScope analiza millones de datos para encontrar oportunidades ocultas que otros creadores no ven.
+              Potenciado por inteligencia artificial, NexScope analiza millones de datos para encontrar oportunidades ocultas que otros creadores no ven.
             </motion.p>
 
             <motion.div
@@ -773,7 +773,7 @@ export function LandingPage() {
                 <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500 text-white">
                   <Radar className="w-5 h-5" />
                 </div>
-                <span className="font-bold text-lg">NicheScope</span>
+                <span className="font-bold text-lg">NexScope</span>
               </div>
               <p className="text-sm text-gray-500">
                 Encuentra nichos rentables de YouTube con IA
@@ -812,7 +812,7 @@ export function LandingPage() {
           </div>
           <div className="mt-12 pt-8 border-t border-white/5 text-center">
             <p className="text-xs text-gray-600">
-              © 2026 NicheScope. Todos los derechos reservados.
+              © 2026 NexScope. Todos los derechos reservados.
             </p>
           </div>
         </div>
