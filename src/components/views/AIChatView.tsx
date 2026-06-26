@@ -3,10 +3,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
+import { useAIStatus } from '@/hooks/use-ai-status';
+import { AIModeBanner } from '@/components/shared/AIModeBanner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Bot, Send, User, Sparkles, Loader2, Trash2 } from 'lucide-react';
+import { Bot, Send, User, Sparkles, Loader2, Trash2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -20,11 +22,12 @@ const suggestedQuestions = [
 
 export function AIChatView() {
   const { chatMessages, addChatMessage, clearChat, loadChatMessages } = useAppStore();
+  const { status: aiStatus, check: recheckAI } = useAIStatus();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load persisted chat history on mount
   useEffect(() => {
     loadChatMessages();
   }, [loadChatMessages]);
@@ -42,6 +45,7 @@ export function AIChatView() {
     if (!message || loading) return;
 
     setInput('');
+    setErrorMsg('');
     addChatMessage({ role: 'user', content: message });
     setLoading(true);
 
@@ -54,14 +58,24 @@ export function AIChatView() {
         }),
       });
       const data = await res.json();
+
+      if (!res.ok) {
+        // Surface the error clearly instead of pretending the AI replied
+        const friendly =
+          data?.code === 'AI_UNAVAILABLE'
+            ? 'El servicio de IA no está disponible. Verifica la conexión del servidor.'
+            : data?.error || 'Error al procesar tu mensaje.';
+        setErrorMsg(friendly);
+        // Don't add a fake assistant message — leave the user message visible
+        return;
+      }
+
       addChatMessage({ role: 'assistant', content: data.content });
-    } catch {
-      addChatMessage({
-        role: 'assistant',
-        content: 'Lo siento, hubo un error al procesar tu mensaje. Por favor, inténtalo de nuevo.',
-      });
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Error de red. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -70,6 +84,13 @@ export function AIChatView() {
         <h2 className="text-2xl font-bold">Asistente IA</h2>
         <p className="text-muted-foreground text-sm">Tu experto en YouTube y creación de contenido</p>
       </div>
+
+      <AIModeBanner
+        available={aiStatus.available}
+        loading={aiStatus.loading}
+        error={aiStatus.error}
+        onRetry={recheckAI}
+      />
 
       {/* Chat Area */}
       <Card className="flex-1 flex flex-col min-h-[500px]">
@@ -87,6 +108,7 @@ export function AIChatView() {
                 onClick={() => {
                   if (confirm('¿Borrar todo el historial del chat? Esta acción no se puede deshacer.')) {
                     clearChat();
+                    setErrorMsg('');
                   }
                 }}
               >
@@ -114,6 +136,7 @@ export function AIChatView() {
                     size="sm"
                     className="text-xs h-auto py-2 px-3"
                     onClick={() => sendMessage(q)}
+                    disabled={!aiStatus.available || loading}
                   >
                     {q}
                   </Button>
@@ -165,6 +188,28 @@ export function AIChatView() {
                   </div>
                 </div>
               )}
+              {errorMsg && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex gap-3 justify-start"
+                >
+                  <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
+                    <AlertCircle className="w-4 h-4 text-amber-500" />
+                  </div>
+                  <div className="max-w-[80%] rounded-2xl px-4 py-3 text-sm bg-amber-500/5 border border-amber-500/30 text-amber-700 dark:text-amber-400">
+                    {errorMsg}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-2 h-6 text-xs underline"
+                      onClick={() => sendMessage()}
+                    >
+                      Reintentar
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
               <div ref={messagesEndRef} />
             </div>
           )}
@@ -180,7 +225,11 @@ export function AIChatView() {
             }}
           >
             <Input
-              placeholder="Escribe tu pregunta..."
+              placeholder={
+                aiStatus.available
+                  ? 'Escribe tu pregunta...'
+                  : 'IA no disponible — escribe y pulsa enviar para reintentar'
+              }
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={loading}

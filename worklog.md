@@ -65,3 +65,34 @@ Stage Summary:
 - ✅ Historial del chat sobrevive recarga de página
 - ⚠️ Inestabilidad del dev server (Turbopack) detectada: tras múltiples requests secuenciales muy rápidos el proceso puede morir sin log. No afecta a producción ni a la lógica de persistencia.
 - Próximas piezas críticas pendientes: (3) reemplazar datos mock del Dashboard/Trends/Keywords con YouTube API real, (4) implementar Stripe para plan Pro, (5) configurar next-intl multiidioma
+
+---
+Task ID: persistencia-verificacion
+Agent: main
+Task: Verificar E2E que la persistencia de datos (nichos, canales, chat, planes) funciona de extremo a extremo.
+
+Work Log:
+- Iniciado `npx next dev -p 3000` (Next.js 16.1.3 Turbopack, ready en 845ms)
+- Ejecutado `bash scripts/test_persistence.sh` con flujo completo de 14 pasos
+- Verificado con `node scripts/db_inspect.js` el estado físico de la DB
+- Probado edge case: token inválido debe retornar 401
+
+Stage Summary:
+- ✅ Register → cookie `nexscope_token` seteada, user creado en DB
+- ✅ GET /api/auth/me → sesión válida, retorna user completo
+- ✅ POST /api/saved-niches (2 nichos) → ambos guardados con userId
+- ✅ GET /api/saved-niches → lista los 2 nichos en orden
+- ✅ POST /api/saved-channels → canal guardado
+- ✅ GET /api/saved-channels → lista el canal
+- ✅ POST /api/chat-messages (3 mensajes user/assistant/user) → guardados
+- ✅ GET /api/chat-messages → lista 3 mensajes en orden ascendente
+- ✅ POST /api/content-plans (plan con planData JSON) → guardado
+- ✅ GET /api/content-plans → lista el plan con su niche y audience
+- ✅ DELETE /api/saved-niches/{nicheId} → borra el correcto
+- ✅ GET /api/saved-niches post-delete → ahora lista 1 (el no borrado)
+- ✅ AUTH GATE: sin cookie → 401 "No autenticado"
+- ✅ AUTH GATE: cookie inválida → 401 "No autenticado"
+- ✅ POST /api/auth/logout → success
+- DB SQLite: 7 users, 5 niches, 2 channels, 4 messages, 2 plans, 1 setting
+
+Conclusión: La Pieza 4 (Persistencia de Datos) está COMPLETA y VERIFICADA. Los 4 modelos Prisma (SavedNiche, SavedChannel, ChatMessage, ContentPlan) ahora se usan activamente, las 4 rutas API (saved-niches, saved-channels, chat-messages, content-plans) manejan CRUD con autenticación, y el store Zustand hace carga paralela + optimistic UI con rollback. Los datos sobreviven recargas.

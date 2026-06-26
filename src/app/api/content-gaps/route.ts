@@ -4,6 +4,7 @@ import ZAI from 'z-ai-web-dev-sdk';
 export async function POST(req: NextRequest) {
   try {
     const { niche } = await req.json();
+    const safeNiche = (niche || '').toString().trim() || 'Inteligencia Artificial & ML';
 
     const zai = await ZAI.create();
 
@@ -27,7 +28,7 @@ Devuelve exactamente 8 brechas de contenido. Los datos deben ser realistas para 
         },
         {
           role: 'user',
-          content: `Analiza las brechas de contenido para el nicho: ${niche || 'Inteligencia Artificial & ML'}`
+          content: `Analiza las brechas de contenido para el nicho: ${safeNiche}`
         },
       ],
     });
@@ -36,23 +37,39 @@ Devuelve exactamente 8 brechas de contenido. Los datos deben ser realistas para 
 
     try {
       const parsed = JSON.parse(content);
-      return NextResponse.json({ gaps: parsed.gaps });
-    } catch {
-      return NextResponse.json({
-        gaps: [
-          { topic: `${niche || 'IA'} para principiantes`, searchVolume: 45000, existingVideos: 120, opportunityScore: 92, suggestedTitle: `Guía Completa de ${niche || 'IA'} desde Cero` },
-          { topic: `Automatización con ${niche || 'IA'}`, searchVolume: 38000, existingVideos: 85, opportunityScore: 88, suggestedTitle: `10 Automatizaciones que Ahorrarán Horas` },
-          { topic: `${niche || 'IA'} avanzado`, searchVolume: 22000, existingVideos: 45, opportunityScore: 85, suggestedTitle: `Técnicas Avanzadas de ${niche || 'IA'}` },
-          { topic: `${niche || 'IA'} en español`, searchVolume: 65000, existingVideos: 200, opportunityScore: 80, suggestedTitle: `${niche || 'IA'} en Español: Lo que Necesitas Saber` },
-          { topic: `Herramientas de ${niche || 'IA'}`, searchVolume: 28000, existingVideos: 90, opportunityScore: 78, suggestedTitle: `Las Mejores Herramientas de ${niche || 'IA'} en 2026` },
-          { topic: `${niche || 'IA'} y dinero`, searchVolume: 18000, existingVideos: 35, opportunityScore: 82, suggestedTitle: `Cómo Ganar Dinero con ${niche || 'IA'}` },
-          { topic: `Tutorial práctico de ${niche || 'IA'}`, searchVolume: 32000, existingVideos: 110, opportunityScore: 75, suggestedTitle: `Tutorial Práctico: ${niche || 'IA'} Paso a Paso` },
-          { topic: `${niche || 'IA'} vs alternativas`, searchVolume: 42000, existingVideos: 150, opportunityScore: 72, suggestedTitle: `${niche || 'IA'} vs Alternativas: Comparativa 2026` },
-        ],
-      });
+      if (Array.isArray(parsed.gaps) && parsed.gaps.length > 0) {
+        return NextResponse.json({ gaps: parsed.gaps, source: 'ai' });
+      }
+      return NextResponse.json(
+        { error: 'La IA respondió en formato inesperado. Intenta de nuevo.', raw: content.substring(0, 200) },
+        { status: 502 }
+      );
+    } catch (parseErr) {
+      return NextResponse.json(
+        { error: 'La IA no devolvió JSON válido. Intenta de nuevo.', raw: content.substring(0, 200) },
+        { status: 502 }
+      );
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Content gaps API error:', error);
-    return NextResponse.json({ gaps: [] }, { status: 500 });
+
+    const isNetworkError =
+      error?.cause?.code === 'UND_ERR_CONNECT_TIMEOUT' ||
+      error?.cause?.code === 'ECONNREFUSED' ||
+      error?.cause?.code === 'ENOTFOUND' ||
+      error?.name === 'TypeError' ||
+      /fetch failed|connect timeout|network/i.test(error?.message || '');
+
+    if (isNetworkError) {
+      return NextResponse.json(
+        { error: 'El servicio de IA no está disponible en este entorno.', code: 'AI_UNAVAILABLE' },
+        { status: 503 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: 'Error al analizar brechas. Intenta de nuevo.', details: error?.message },
+      { status: 500 }
+    );
   }
 }

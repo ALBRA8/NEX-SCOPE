@@ -5,6 +5,13 @@ export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json();
 
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return NextResponse.json(
+        { error: 'messages es requerido y debe ser un array no vacío' },
+        { status: 400 }
+      );
+    }
+
     const zai = await ZAI.create();
 
     const response = await zai.chat.completions.create({
@@ -17,13 +24,43 @@ export async function POST(req: NextRequest) {
       ],
     });
 
-    const content = response.choices?.[0]?.message?.content || 'Lo siento, no pude generar una respuesta.';
+    const content = response.choices?.[0]?.message?.content;
 
-    return NextResponse.json({ content });
-  } catch (error) {
+    if (!content) {
+      return NextResponse.json(
+        { error: 'La IA no devolvió contenido. Intenta reformular tu mensaje.' },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ content, source: 'ai' });
+  } catch (error: any) {
     console.error('Chat API error:', error);
-    return NextResponse.json({
-      content: 'Lo siento, hubo un error al procesar tu mensaje. Por favor, inténtalo de nuevo.'
-    }, { status: 500 });
+
+    // Detect network errors (SDK can't reach upstream)
+    const isNetworkError =
+      error?.cause?.code === 'UND_ERR_CONNECT_TIMEOUT' ||
+      error?.cause?.code === 'ECONNREFUSED' ||
+      error?.cause?.code === 'ENOTFOUND' ||
+      error?.name === 'TypeError' ||
+      /fetch failed|connect timeout|network/i.test(error?.message || '');
+
+    if (isNetworkError) {
+      return NextResponse.json(
+        {
+          error: 'El servicio de IA no está disponible en este entorno. Verifica la conexión de red del servidor.',
+          code: 'AI_UNAVAILABLE',
+        },
+        { status: 503 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: 'Error al procesar tu mensaje. Intenta de nuevo.',
+        details: error?.message || 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }

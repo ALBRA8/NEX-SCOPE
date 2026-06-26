@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { niches } from '@/lib/mock-data';
 import { VideoIdea } from '@/lib/types';
+import { useAIStatus } from '@/hooks/use-ai-status';
+import { AIModeBanner } from '@/components/shared/AIModeBanner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,13 +12,15 @@ import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { CalendarDays, Loader2, Download, Sparkles, Save, Trash2, Clock, History } from 'lucide-react';
+import { CalendarDays, Loader2, Download, Sparkles, Save, Trash2, Clock, History, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 
-const mockPlan: VideoIdea[] = [
+// Demo plan — only shown when user explicitly requests demo mode (AI unavailable).
+// Renamed from mockPlan to make intent explicit.
+const demoPlan: VideoIdea[] = [
   { title: 'Introducción a [Nicho]: Todo lo que Necesitas Saber', description: 'Video introductorio que cubre los fundamentos del nicho para principiantes', keywords: ['introducción', 'guía', 'principiantes'], estimatedViews: 15000, difficulty: 'fácil', format: 'Tutorial', week: 1 },
   { title: 'Los 10 Errores más Comunes en [Nicho]', description: 'Análisis de errores frecuentes y cómo evitarlos', keywords: ['errores', 'consejos', 'tips'], estimatedViews: 25000, difficulty: 'fácil', format: 'Lista', week: 1 },
   { title: 'Cómo Empezar en [Nicho] desde Cero', description: 'Guía paso a paso para principiantes absolutos', keywords: ['empezar', 'cero', 'guía'], estimatedViews: 18000, difficulty: 'fácil', format: 'Tutorial', week: 1 },
@@ -55,15 +59,20 @@ const difficultyColors = {
   difícil: 'bg-rose-500/10 text-rose-600 border-rose-500/20',
 };
 
+type PlanMode = 'idle' | 'ai' | 'demo' | 'error';
+
 export function ContentPlanView() {
   const [niche, setNiche] = useState('');
   const [audience, setAudience] = useState('');
   const [loading, setLoading] = useState(false);
   const [plan, setPlan] = useState<VideoIdea[]>([]);
+  const [mode, setMode] = useState<PlanMode>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
 
   const { savedPlans, loadSavedPlans, savePlan, deletePlan } = useAppStore();
   const { toast } = useToast();
+  const { status: aiStatus, check: recheckAI } = useAIStatus();
   const [showHistory, setShowHistory] = useState(false);
 
   // Load saved plans on mount
@@ -73,6 +82,9 @@ export function ContentPlanView() {
 
   const handleGenerate = async () => {
     setLoading(true);
+    setErrorMsg('');
+    setPlan([]);
+    setMode('idle');
     try {
       const res = await fetch('/api/content-plan', {
         method: 'POST',
@@ -80,11 +92,30 @@ export function ContentPlanView() {
         body: JSON.stringify({ niche: niche || 'Inteligencia Artificial & ML', audience: audience || 'Jóvenes de 18-35 años' }),
       });
       const data = await res.json();
-      setPlan(data.plan || mockPlan);
-    } catch {
-      setPlan(mockPlan);
+      if (!res.ok) {
+        setMode('error');
+        setErrorMsg(data?.error || 'Error al generar plan.');
+        return;
+      }
+      if (Array.isArray(data.plan) && data.plan.length > 0) {
+        setPlan(data.plan);
+        setMode('ai');
+      } else {
+        setMode('error');
+        setErrorMsg('La IA no devolvió videos. Intenta de nuevo.');
+      }
+    } catch (err: any) {
+      setMode('error');
+      setErrorMsg(err?.message || 'Error de red.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const handleUseDemo = () => {
+    setPlan(demoPlan);
+    setMode('demo');
+    setErrorMsg('');
   };
 
   const handleSave = async () => {
@@ -143,7 +174,15 @@ export function ContentPlanView() {
   };
 
   const handleExportCSV = () => {
-    const dataToExport = plan.length > 0 ? plan : mockPlan;
+    if (plan.length === 0) {
+      toast({
+        title: 'Nada que exportar',
+        description: 'Genera o carga un plan primero.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const dataToExport = plan;
     const headers = ['Semana', 'Título', 'Descripción', 'Formato', 'Dificultad', 'Vistas estimadas', 'Keywords'];
     const rows = dataToExport.map((v) => [
       v.week,
@@ -172,7 +211,7 @@ export function ContentPlanView() {
     });
   };
 
-  const displayPlan = plan.length > 0 ? plan : mockPlan;
+  const displayPlan = plan;
   const filteredPlan = selectedWeek ? displayPlan.filter(v => v.week === selectedWeek) : displayPlan;
   const weeks = [...new Set(displayPlan.map(v => v.week))];
 
@@ -182,6 +221,14 @@ export function ContentPlanView() {
         <h2 className="text-2xl font-bold">Plan de Contenido</h2>
         <p className="text-muted-foreground text-sm">Genera un plan de 30 videos con IA, guárdalo en tu cuenta y expórtalo a CSV</p>
       </div>
+
+      <AIModeBanner
+        available={aiStatus.available}
+        loading={aiStatus.loading}
+        error={aiStatus.error}
+        onRetry={recheckAI}
+        onUseDemo={handleUseDemo}
+      />
 
       {/* Generator */}
       <Card>
@@ -211,7 +258,52 @@ export function ContentPlanView() {
         </CardContent>
       </Card>
 
-      {/* Week Filter + Actions */}
+      {/* Error state */}
+      {mode === 'error' && !loading && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardContent className="p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">No se pudo generar con IA</p>
+              <p className="text-xs text-muted-foreground mt-1">{errorMsg}</p>
+              <div className="flex gap-2 mt-2">
+                <Button variant="outline" size="sm" className="text-xs h-7" onClick={handleGenerate}>
+                  Reintentar IA
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs h-7" onClick={handleUseDemo}>
+                  Ver datos demo
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Mode badge */}
+      {(mode === 'ai' || mode === 'demo') && plan.length > 0 && (
+        <Badge variant="outline" className={cn(
+          'text-[10px] gap-1 w-fit',
+          mode === 'ai'
+            ? 'border-emerald-500/30 text-emerald-600'
+            : 'border-amber-500/30 text-amber-600'
+        )}>
+          {mode === 'ai' ? 'Generado por IA' : 'Datos demo'} · {plan.length} videos
+        </Badge>
+      )}
+
+      {/* Empty state */}
+      {mode === 'idle' && !loading && plan.length === 0 && (
+        <Card>
+          <CardContent className="p-12 text-center text-muted-foreground">
+            <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p className="text-sm">Selecciona un nicho y pulsa "Generar Plan"</p>
+            <p className="text-xs mt-1">La IA creará 30 ideas de video organizadas en 10 semanas.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Week Filter + Actions — only show when we have a plan */}
+      {plan.length > 0 && (
       <div className="flex flex-wrap gap-2 items-center">
         <Button
           variant={selectedWeek === null ? 'default' : 'outline'}
@@ -260,6 +352,7 @@ export function ContentPlanView() {
           <Download className="w-3 h-3 mr-1" /> Exportar CSV
         </Button>
       </div>
+      )}
 
       {/* Saved plans history */}
       <AnimatePresence>
@@ -344,6 +437,7 @@ export function ContentPlanView() {
       </AnimatePresence>
 
       {/* Video Ideas */}
+      {plan.length > 0 && (
       <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-1">
         <AnimatePresence>
           {filteredPlan.map((video, i) => (
@@ -382,6 +476,7 @@ export function ContentPlanView() {
           ))}
         </AnimatePresence>
       </div>
+      )}
     </div>
   );
 }

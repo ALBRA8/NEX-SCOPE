@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { niches } from '@/lib/mock-data';
 import { ContentGap } from '@/lib/types';
+import { useAIStatus } from '@/hooks/use-ai-status';
+import { AIModeBanner } from '@/components/shared/AIModeBanner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,13 +16,14 @@ import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ZAxis,
 } from 'recharts';
-import { Puzzle, Loader2, Lightbulb, Search, ArrowRight } from 'lucide-react';
+import { Puzzle, Loader2, Lightbulb, Search, ArrowRight, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 
-// Mock content gaps
-const mockGaps: ContentGap[] = [
+// Demo data — clearly labeled as such. Used only when AI is unavailable
+// AND the user has explicitly requested demo mode.
+const demoGaps: ContentGap[] = [
   { topic: 'IA para principiantes en español', searchVolume: 45000, existingVideos: 120, opportunityScore: 92, suggestedTitle: 'IA desde Cero: Guía Completa en Español 2026' },
   { topic: 'Automatización con ChatGPT', searchVolume: 38000, existingVideos: 85, opportunityScore: 88, suggestedTitle: '10 Automatizaciones con ChatGPT que Ahorrarán Horas' },
   { topic: 'Notion para freelancers', searchVolume: 22000, existingVideos: 45, opportunityScore: 85, suggestedTitle: 'Sistema Notion Definitivo para Freelancers' },
@@ -31,14 +34,23 @@ const mockGaps: ContentGap[] = [
   { topic: 'Inversiones en ETFs', searchVolume: 42000, existingVideos: 150, opportunityScore: 72, suggestedTitle: 'ETFs para Principiantes: Guía Definitiva 2026' },
 ];
 
+type Mode = 'idle' | 'ai' | 'demo' | 'error';
+
 export function ContentGapView() {
   const [niche, setNiche] = useState('');
   const [loading, setLoading] = useState(false);
   const [gaps, setGaps] = useState<ContentGap[]>([]);
+  const [mode, setMode] = useState<Mode>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
   const { setActiveView } = useAppStore();
+  const { status: aiStatus, check: recheckAI } = useAIStatus();
 
   const handleAnalyze = async () => {
     setLoading(true);
+    setErrorMsg('');
+    setGaps([]);
+    setMode('idle');
+
     try {
       const res = await fetch('/api/content-gaps', {
         method: 'POST',
@@ -46,14 +58,36 @@ export function ContentGapView() {
         body: JSON.stringify({ niche: niche || 'Inteligencia Artificial & ML' }),
       });
       const data = await res.json();
-      setGaps(data.gaps || mockGaps);
-    } catch {
-      setGaps(mockGaps);
+
+      if (!res.ok) {
+        setMode('error');
+        setErrorMsg(data?.error || 'Error al analizar brechas.');
+        return;
+      }
+
+      if (Array.isArray(data.gaps) && data.gaps.length > 0) {
+        setGaps(data.gaps);
+        setMode('ai');
+      } else {
+        setMode('error');
+        setErrorMsg('La IA no devolvió brechas. Intenta con otro nicho.');
+      }
+    } catch (err: any) {
+      setMode('error');
+      setErrorMsg(err?.message || 'Error de red.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const scatterData = (gaps.length > 0 ? gaps : mockGaps).map(g => ({
+  const handleUseDemo = () => {
+    setGaps(demoGaps);
+    setMode('demo');
+    setErrorMsg('');
+  };
+
+  const displayGaps = gaps.length > 0 ? gaps : (mode === 'demo' ? demoGaps : []);
+  const scatterData = displayGaps.map(g => ({
     x: g.existingVideos,
     y: g.searchVolume,
     z: g.opportunityScore,
@@ -66,6 +100,14 @@ export function ContentGapView() {
         <h2 className="text-2xl font-bold">Brechas de Contenido</h2>
         <p className="text-muted-foreground text-sm">Encuentra oportunidades de contenido sin explotar con IA</p>
       </div>
+
+      <AIModeBanner
+        available={aiStatus.available}
+        loading={aiStatus.loading}
+        error={aiStatus.error}
+        onRetry={recheckAI}
+        onUseDemo={handleUseDemo}
+      />
 
       <Card>
         <CardContent className="p-6">
@@ -96,8 +138,54 @@ export function ContentGapView() {
         </CardContent>
       </Card>
 
-      {(gaps.length > 0 || true) && (
+      {/* Error state */}
+      {mode === 'error' && !loading && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardContent className="p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">No se pudo analizar con IA</p>
+              <p className="text-xs text-muted-foreground mt-1">{errorMsg}</p>
+              <div className="flex gap-2 mt-2">
+                <Button variant="outline" size="sm" className="text-xs h-7" onClick={handleAnalyze}>
+                  Reintentar IA
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs h-7" onClick={handleUseDemo}>
+                  Ver datos demo
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Empty state — only show BEFORE the user has tried anything */}
+      {mode === 'idle' && !loading && (
+        <Card>
+          <CardContent className="p-12 text-center text-muted-foreground">
+            <Puzzle className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p className="text-sm">Selecciona un nicho y pulsa "Analizar Brechas"</p>
+            <p className="text-xs mt-1">La IA generará 8 oportunidades de contenido basadas en el nicho.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Results — only when we actually have data */}
+      {(mode === 'ai' || mode === 'demo') && displayGaps.length > 0 && (
         <>
+          {/* Mode badge */}
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className={cn(
+              'text-[10px] gap-1',
+              mode === 'ai'
+                ? 'border-emerald-500/30 text-emerald-600'
+                : 'border-amber-500/30 text-amber-600'
+            )}>
+              {mode === 'ai' ? 'Generado por IA' : 'Datos demo'}
+            </Badge>
+            <span className="text-xs text-muted-foreground">{displayGaps.length} brechas encontradas</span>
+          </div>
+
           {/* Opportunity Matrix */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <Card>
@@ -137,7 +225,7 @@ export function ContentGapView() {
           {/* Content Gap Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <AnimatePresence>
-              {(gaps.length > 0 ? gaps : mockGaps).map((gap, i) => (
+              {displayGaps.map((gap, i) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, y: 20 }}
