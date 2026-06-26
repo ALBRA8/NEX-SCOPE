@@ -6,7 +6,7 @@ import { useAppStore } from '@/lib/store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Bot, Send, User, Sparkles, Loader2 } from 'lucide-react';
+import { Bot, Send, User, Sparkles, Loader2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -19,10 +19,15 @@ const suggestedQuestions = [
 ];
 
 export function AIChatView() {
-  const { chatMessages, addChatMessage } = useAppStore();
+  const { chatMessages, addChatMessage, clearChat, loadChatMessages } = useAppStore();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load persisted chat history on mount
+  useEffect(() => {
+    loadChatMessages();
+  }, [loadChatMessages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -69,10 +74,27 @@ export function AIChatView() {
       {/* Chat Area */}
       <Card className="flex-1 flex flex-col min-h-[500px]">
         <CardHeader className="pb-2 border-b">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Bot className="w-5 h-5 text-primary" />
-            Asistente NexScope
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Bot className="w-5 h-5 text-primary" />
+              Asistente NexScope
+            </CardTitle>
+            {chatMessages.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7 text-muted-foreground hover:text-destructive"
+                onClick={() => {
+                  if (confirm('¿Borrar todo el historial del chat? Esta acción no se puede deshacer.')) {
+                    clearChat();
+                  }
+                }}
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                Limpiar
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="flex-1 p-4 overflow-y-auto custom-scrollbar">
           {chatMessages.length === 0 ? (

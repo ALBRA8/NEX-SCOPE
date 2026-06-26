@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { niches } from '@/lib/mock-data';
 import { VideoIdea } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,9 +10,11 @@ import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { CalendarDays, Loader2, Download, Sparkles, ChevronRight } from 'lucide-react';
+import { CalendarDays, Loader2, Download, Sparkles, Save, Trash2, Clock, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/lib/store';
+import { useToast } from '@/hooks/use-toast';
 
 const mockPlan: VideoIdea[] = [
   { title: 'Introducción a [Nicho]: Todo lo que Necesitas Saber', description: 'Video introductorio que cubre los fundamentos del nicho para principiantes', keywords: ['introducción', 'guía', 'principiantes'], estimatedViews: 15000, difficulty: 'fácil', format: 'Tutorial', week: 1 },
@@ -60,6 +62,15 @@ export function ContentPlanView() {
   const [plan, setPlan] = useState<VideoIdea[]>([]);
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
 
+  const { savedPlans, loadSavedPlans, savePlan, deletePlan } = useAppStore();
+  const { toast } = useToast();
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Load saved plans on mount
+  useEffect(() => {
+    loadSavedPlans();
+  }, [loadSavedPlans]);
+
   const handleGenerate = async () => {
     setLoading(true);
     try {
@@ -76,6 +87,91 @@ export function ContentPlanView() {
     setLoading(false);
   };
 
+  const handleSave = async () => {
+    if (plan.length === 0) {
+      toast({
+        title: 'Nada que guardar',
+        description: 'Genera un plan primero.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const result = await savePlan(
+      niche || 'Inteligencia Artificial & ML',
+      audience || 'Jóvenes de 18-35 años',
+      plan
+    );
+    if (result.success) {
+      toast({
+        title: 'Plan guardado',
+        description: `Plan para "${niche || 'IA'}" guardado en tu cuenta.`,
+      });
+    } else {
+      toast({
+        title: 'Error al guardar',
+        description: result.error || 'No se pudo guardar el plan.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleLoadPlan = (planData: string) => {
+    try {
+      const parsed = JSON.parse(planData) as VideoIdea[];
+      setPlan(parsed);
+      setSelectedWeek(null);
+      setShowHistory(false);
+      toast({
+        title: 'Plan cargado',
+        description: `${parsed.length} videos cargados.`,
+      });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'No se pudo cargar el plan (datos corruptos).',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeletePlan = async (id: string) => {
+    await deletePlan(id);
+    toast({
+      title: 'Plan eliminado',
+      description: 'El plan guardado ha sido borrado.',
+    });
+  };
+
+  const handleExportCSV = () => {
+    const dataToExport = plan.length > 0 ? plan : mockPlan;
+    const headers = ['Semana', 'Título', 'Descripción', 'Formato', 'Dificultad', 'Vistas estimadas', 'Keywords'];
+    const rows = dataToExport.map((v) => [
+      v.week,
+      `"${v.title.replace(/"/g, '""')}"`,
+      `"${v.description.replace(/"/g, '""')}"`,
+      v.format,
+      v.difficulty,
+      v.estimatedViews,
+      `"${v.keywords.join(', ')}"`,
+    ]);
+    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+
+    // Add BOM so Excel opens UTF-8 correctly
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeNiche = (niche || 'plan-contenido').replace(/[^a-zA-Z0-9-]/g, '_').toLowerCase();
+    link.href = url;
+    link.download = `nexscope-plan-${safeNiche}-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: 'CSV exportado',
+      description: `${dataToExport.length} videos exportados.`,
+    });
+  };
+
   const displayPlan = plan.length > 0 ? plan : mockPlan;
   const filteredPlan = selectedWeek ? displayPlan.filter(v => v.week === selectedWeek) : displayPlan;
   const weeks = [...new Set(displayPlan.map(v => v.week))];
@@ -84,7 +180,7 @@ export function ContentPlanView() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">Plan de Contenido</h2>
-        <p className="text-muted-foreground text-sm">Genera un plan de 30 videos con IA</p>
+        <p className="text-muted-foreground text-sm">Genera un plan de 30 videos con IA, guárdalo en tu cuenta y expórtalo a CSV</p>
       </div>
 
       {/* Generator */}
@@ -115,8 +211,8 @@ export function ContentPlanView() {
         </CardContent>
       </Card>
 
-      {/* Week Filter */}
-      <div className="flex flex-wrap gap-2">
+      {/* Week Filter + Actions */}
+      <div className="flex flex-wrap gap-2 items-center">
         <Button
           variant={selectedWeek === null ? 'default' : 'outline'}
           size="sm"
@@ -136,15 +232,116 @@ export function ContentPlanView() {
             Semana {w}
           </Button>
         ))}
+        <div className="flex-1" />
         <Button
           variant="outline"
           size="sm"
-          className="text-xs h-7 ml-auto"
-          onClick={() => {/* simulated export */}}
+          className="text-xs h-7"
+          onClick={() => setShowHistory(!showHistory)}
         >
-          <Download className="w-3 h-3 mr-1" /> Exportar
+          <History className="w-3 h-3 mr-1" />
+          {showHistory ? 'Ocultar historial' : `Planes guardados (${savedPlans.length})`}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs h-7"
+          onClick={handleSave}
+          disabled={plan.length === 0}
+        >
+          <Save className="w-3 h-3 mr-1" /> Guardar
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs h-7"
+          onClick={handleExportCSV}
+        >
+          <Download className="w-3 h-3 mr-1" /> Exportar CSV
         </Button>
       </div>
+
+      {/* Saved plans history */}
+      <AnimatePresence>
+        {showHistory && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <History className="w-4 h-4" />
+                  Planes guardados ({savedPlans.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {savedPlans.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    Aún no has guardado ningún plan. Genera uno y pulsa "Guardar".
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+                    {savedPlans.map((p) => {
+                      let count = 0;
+                      try { count = JSON.parse(p.planData).length; } catch {}
+                      return (
+                        <div
+                          key={p.id}
+                          className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{p.niche}</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-2">
+                              <Clock className="w-3 h-3" />
+                              {new Date(p.createdAt).toLocaleString('es-ES', {
+                                day: '2-digit', month: 'short', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit'
+                              })}
+                              <span>·</span>
+                              <span>{count} videos</span>
+                              {p.audience && (
+                                <>
+                                  <span>·</span>
+                                  <span className="truncate">{p.audience}</span>
+                                </>
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex gap-1 shrink-0">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-7"
+                              onClick={() => {
+                                setNiche(p.niche);
+                                setAudience(p.audience);
+                                handleLoadPlan(p.planData);
+                              }}
+                            >
+                              Cargar
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeletePlan(p.id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Video Ideas */}
       <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-1">

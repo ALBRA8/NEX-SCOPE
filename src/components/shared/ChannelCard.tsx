@@ -42,7 +42,7 @@ export function ChannelCard({ channel, onSelect }: ChannelCardProps) {
                 <Button
                   variant="ghost" size="icon"
                   className="h-7 w-7 shrink-0"
-                  onClick={() => toggleSavedChannel(channel.id)}
+                  onClick={() => toggleSavedChannel(channel)}
                 >
                   {isSaved ? (
                     <BookmarkCheck className="w-4 h-4 text-primary" />

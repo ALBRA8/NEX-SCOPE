@@ -49,7 +49,7 @@ export function NicheCard({ niche, onAnalyze }: NicheCardProps) {
             <Button
               variant="ghost" size="icon"
               className="h-8 w-8 shrink-0"
-              onClick={() => toggleSavedNiche(niche.id)}
+              onClick={() => toggleSavedNiche(niche)}
             >
               {isSaved ? (
                 <BookmarkCheck className="w-4 h-4 text-primary" />
