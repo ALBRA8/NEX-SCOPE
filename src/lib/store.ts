@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { ViewType, ChatMessage } from './types';
-
-interface UserInfo {
-  id: string;
-  name: string;
-  email: string;
-}
+import {
+  checkClientAuth,
+  cacheUserLocally,
+  getCachedUser,
+  type AuthUser,
+} from './auth';
 
 interface AppState {
   activeView: ViewType;
@@ -22,40 +22,23 @@ interface AppState {
   // Auth
   isAuthenticated: boolean;
   isHydrated: boolean;
-  user: UserInfo | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
-  quickStart: () => void;
-  logout: () => void;
-  initAuth: () => void;
+  isAuthLoading: boolean;
+  user: AuthUser | null;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  quickStart: () => Promise<void>;
+  logout: () => Promise<void>;
+  initAuth: () => Promise<void>;
 }
 
-const STORAGE_KEY = 'nexscope_user';
+const CACHE_KEY = 'nexscope_user_cache';
 
-function loadUserFromStorage(): UserInfo | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch {
-    // ignore
-  }
-  return null;
+function loadCachedUser(): AuthUser | null {
+  return getCachedUser();
 }
 
-function saveUserToStorage(user: UserInfo | null) {
-  if (typeof window === 'undefined') return;
-  try {
-    if (user) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  } catch {
-    // ignore
-  }
+function saveCachedUser(user: AuthUser | null) {
+  cacheUserLocally(user);
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -82,16 +65,45 @@ export const useAppStore = create<AppState>((set) => ({
   sidebarCollapsed: false,
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-  // Auth
+  // ━━ Auth ━━
   isAuthenticated: false,
   isHydrated: false,
+  isAuthLoading: false,
   user: null,
-  initAuth: () => {
-    const user = loadUserFromStorage();
-    if (user) {
-      set({ isAuthenticated: true, user, isHydrated: true });
+  initAuth: async () => {
+    // Step 1: Hydrate from localStorage cache for instant UI render
+    const cachedUser = loadCachedUser();
+    if (cachedUser) {
+      set({ isAuthenticated: true, user: cachedUser, isHydrated: true });
     } else {
       set({ isHydrated: true });
+    }
+
+    // Step 2: Verify with server (httpOnly JWT cookie is source of truth)
+    set({ isAuthLoading: true });
+    try {
+      const { authenticated, user } = await checkClientAuth();
+      if (authenticated && user) {
+        saveCachedUser(user);
+        set({
+          isAuthenticated: true,
+          user,
+          isAuthLoading: false,
+          isHydrated: true,
+        });
+      } else {
+        // Server says not authenticated — clear stale cache
+        saveCachedUser(null);
+        set({
+          isAuthenticated: false,
+          user: null,
+          isAuthLoading: false,
+          isHydrated: true,
+        });
+      }
+    } catch {
+      // Network error: keep cached state, mark as not loading
+      set({ isAuthLoading: false });
     }
   },
   login: async (email: string, password: string) => {
@@ -99,17 +111,45 @@ export const useAppStore = create<AppState>((set) => ({
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (data.success && data.user) {
-        saveUserToStorage(data.user);
-        set({ isAuthenticated: true, user: data.user, isHydrated: true });
-        return true;
+        // Fetch full user info (includes createdAt)
+        const meRes = await fetch('/api/auth/me', {
+          credentials: 'include',
+        });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData.success && meData.user) {
+            saveCachedUser(meData.user);
+            set({
+              isAuthenticated: true,
+              user: meData.user,
+              isHydrated: true,
+            });
+            return { success: true };
+          }
+        }
+        // Fallback: use minimal user info from login response
+        const minimalUser: AuthUser = {
+          id: data.user.id,
+          name: data.user.name,
+          email: data.user.email,
+          createdAt: new Date(),
+        };
+        saveCachedUser(minimalUser);
+        set({
+          isAuthenticated: true,
+          user: minimalUser,
+          isHydrated: true,
+        });
+        return { success: true };
       }
-      return false;
-    } catch {
-      return false;
+      return { success: false, error: data.error || 'Error al iniciar sesión' };
+    } catch (err) {
+      return { success: false, error: 'Error de conexión' };
     }
   },
   register: async (name: string, email: string, password: string) => {
@@ -117,30 +157,143 @@ export const useAppStore = create<AppState>((set) => ({
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ name, email, password }),
       });
       const data = await res.json();
       if (data.success && data.user) {
-        saveUserToStorage(data.user);
-        set({ isAuthenticated: true, user: data.user, isHydrated: true });
-        return true;
+        // Fetch full user info (includes createdAt)
+        const meRes = await fetch('/api/auth/me', {
+          credentials: 'include',
+        });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData.success && meData.user) {
+            saveCachedUser(meData.user);
+            set({
+              isAuthenticated: true,
+              user: meData.user,
+              isHydrated: true,
+            });
+            return { success: true };
+          }
+        }
+        // Fallback: use minimal user info
+        const minimalUser: AuthUser = {
+          id: data.user.id,
+          name: data.user.name,
+          email: data.user.email,
+          createdAt: new Date(),
+        };
+        saveCachedUser(minimalUser);
+        set({
+          isAuthenticated: true,
+          user: minimalUser,
+          isHydrated: true,
+        });
+        return { success: true };
       }
-      return false;
-    } catch {
-      return false;
+      return { success: false, error: data.error || 'Error al registrar' };
+    } catch (err) {
+      return { success: false, error: 'Error de conexión' };
     }
   },
-  quickStart: () => {
-    const guestUser = {
-      id: 'guest',
-      name: 'Invitado',
-      email: 'invitado@nexscope.app',
-    };
-    saveUserToStorage(guestUser);
-    set({ isAuthenticated: true, user: guestUser, isHydrated: true });
+  quickStart: async () => {
+    // Quick start now creates a real guest account with a random password
+    // so the user gets a real JWT cookie instead of fake localStorage state.
+    try {
+      const randomId = Math.random().toString(36).substring(2, 12);
+      const guestEmail = `guest_${randomId}@nexscope.app`;
+      const guestPassword = `guest_${randomId}_${Date.now()}`;
+
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: `Invitado ${randomId.slice(0, 4).toUpperCase()}`,
+          email: guestEmail,
+          password: guestPassword,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData.success && meData.user) {
+            saveCachedUser(meData.user);
+            set({
+              isAuthenticated: true,
+              user: meData.user,
+              isHydrated: true,
+            });
+            return;
+          }
+        }
+        // Fallback
+        const minimalUser: AuthUser = {
+          id: data.user.id,
+          name: data.user.name,
+          email: data.user.email,
+          createdAt: new Date(),
+        };
+        saveCachedUser(minimalUser);
+        set({
+          isAuthenticated: true,
+          user: minimalUser,
+          isHydrated: true,
+        });
+      } else {
+        // If registration fails (e.g., email collision), fall back to a pure guest mode
+        // without server auth — but this won't have persistent data.
+        const guestUser: AuthUser = {
+          id: `guest_${randomId}`,
+          name: 'Invitado',
+          email: guestEmail,
+          createdAt: new Date(),
+        };
+        saveCachedUser(guestUser);
+        set({
+          isAuthenticated: true,
+          user: guestUser,
+          isHydrated: true,
+        });
+      }
+    } catch (err) {
+      // Network error fallback: pure client-side guest (no persistence)
+      const randomId = Math.random().toString(36).substring(2, 12);
+      const guestUser: AuthUser = {
+        id: `guest_${randomId}`,
+        name: 'Invitado',
+        email: `guest_${randomId}@nexscope.app`,
+        createdAt: new Date(),
+      };
+      saveCachedUser(guestUser);
+      set({
+        isAuthenticated: true,
+        user: guestUser,
+        isHydrated: true,
+      });
+    }
   },
-  logout: () => {
-    saveUserToStorage(null);
-    set({ isAuthenticated: false, user: null, activeView: 'dashboard' });
+  logout: async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // ignore network errors
+    }
+    saveCachedUser(null);
+    set({
+      isAuthenticated: false,
+      user: null,
+      activeView: 'dashboard',
+      savedNiches: [],
+      savedChannels: [],
+      chatMessages: [],
+    });
   },
 }));

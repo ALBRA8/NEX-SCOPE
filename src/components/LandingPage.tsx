@@ -313,8 +313,21 @@ const testimonials = [
 export function LandingPage() {
   const [showLogin, setShowLogin] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
+  const [quickStartLoading, setQuickStartLoading] = useState(false);
   const quickStart = useAppStore((s) => s.quickStart);
   const mounted = useMounted();
+
+  const handleQuickStart = async () => {
+    if (quickStartLoading) return;
+    setQuickStartLoading(true);
+    try {
+      await quickStart();
+    } catch (err) {
+      console.error('Quick start failed:', err);
+    } finally {
+      setQuickStartLoading(false);
+    }
+  };
 
   const switchToRegister = () => {
     setShowLogin(false);
@@ -368,9 +381,10 @@ export function LandingPage() {
               </Button>
               <Button
                 className="bg-white/10 hover:bg-white/20 text-white font-semibold border border-white/20"
-                onClick={quickStart}
+                onClick={handleQuickStart}
+                disabled={quickStartLoading}
               >
-                INICIAR
+                {quickStartLoading ? 'Cargando...' : 'INICIAR'}
               </Button>
             </div>
           </div>
@@ -437,9 +451,10 @@ export function LandingPage() {
               <Button
                 size="lg"
                 className="bg-white/10 hover:bg-white/20 text-white font-semibold text-base px-8 h-12 rounded-xl border border-white/20"
-                onClick={quickStart}
+                onClick={handleQuickStart}
+                disabled={quickStartLoading}
               >
-                INICIAR
+                {quickStartLoading ? 'Cargando...' : 'INICIAR'}
               </Button>
               <Button
                 size="lg"

@@ -39,11 +39,11 @@ export function LoginModal({ onClose, onSwitchToRegister }: LoginModalProps) {
 
     setLoading(true);
     try {
-      const success = await login(email, password);
-      if (success) {
+      const result = await login(email, password);
+      if (result.success) {
         onClose();
       } else {
-        setError('Email o contraseña incorrectos');
+        setError(result.error || 'Email o contraseña incorrectos');
       }
     } catch {
       setError('Error al iniciar sesión. Intenta de nuevo.');

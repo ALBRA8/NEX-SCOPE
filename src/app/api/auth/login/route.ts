@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import {
+  verifyPassword,
+  migratePasswordToBcrypt,
+  signToken,
+  setAuthCookie,
+} from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await db.user.findUnique({
-      where: { email },
+      where: { email: email.toLowerCase() },
     });
 
     if (!user) {
@@ -24,16 +30,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const hashedPassword = Buffer.from(password).toString('base64');
+    // ━━ Verify password (supports both bcrypt and legacy base64) ━━
+    const { valid, needsMigration } = await verifyPassword(password, user.password);
 
-    if (user.password !== hashedPassword) {
+    if (!valid) {
       return NextResponse.json(
         { success: false, error: 'Credenciales inválidas' },
         { status: 401 }
       );
     }
 
-    return NextResponse.json({
+    // ━━ Auto-migrate legacy base64 password to bcrypt ━━
+    if (needsMigration) {
+      await migratePasswordToBcrypt(user.id, password);
+    }
+
+    // ━━ Sign JWT and set httpOnly cookie ━━
+    const token = signToken({ userId: user.id, email: user.email });
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user.id,
@@ -41,6 +55,9 @@ export async function POST(request: NextRequest) {
         email: user.email,
       },
     });
+    setAuthCookie(response, token);
+
+    return response;
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(

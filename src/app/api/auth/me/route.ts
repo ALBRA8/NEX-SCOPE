@@ -1,43 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { getAuthenticatedUser } from '@/lib/auth';
 
+/**
+ * GET /api/auth/me
+ * 
+ * Returns the currently authenticated user based on the httpOnly JWT cookie.
+ * Used by the client to verify auth state on page load.
+ * 
+ * Unlike the previous implementation, this route does NOT accept a userId
+ * query parameter. The user is determined solely by the JWT in the cookie,
+ * which is cryptographically signed and cannot be tampered with.
+ */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'userId es obligatorio' },
-        { status: 400 }
-      );
-    }
-
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        createdAt: true,
-      },
-    });
+    const user = await getAuthenticatedUser(request);
 
     if (!user) {
       return NextResponse.json(
-        { success: false, error: 'Usuario no encontrado' },
-        { status: 404 }
+        { success: false, authenticated: false, error: 'No autenticado' },
+        { status: 401 }
       );
     }
 
     return NextResponse.json({
       success: true,
+      authenticated: true,
       user,
     });
   } catch (error) {
     console.error('Me error:', error);
     return NextResponse.json(
-      { success: false, error: 'Error interno del servidor' },
+      { success: false, authenticated: false, error: 'Error interno del servidor' },
       { status: 500 }
     );
   }

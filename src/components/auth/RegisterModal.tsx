@@ -51,11 +51,11 @@ export function RegisterModal({ onClose, onSwitchToLogin }: RegisterModalProps) 
 
     setLoading(true);
     try {
-      const success = await register(name, email, password);
-      if (success) {
+      const result = await register(name, email, password);
+      if (result.success) {
         onClose();
       } else {
-        setError('Ya existe una cuenta con este email');
+        setError(result.error || 'Ya existe una cuenta con este email');
       }
     } catch {
       setError('Error al crear la cuenta. Intenta de nuevo.');

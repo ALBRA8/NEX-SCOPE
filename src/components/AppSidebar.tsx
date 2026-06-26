@@ -159,7 +159,7 @@ export function AppSidebar() {
             variant="ghost"
             size="sm"
             className="w-full mt-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 justify-start gap-2 text-xs"
-            onClick={logout}
+            onClick={() => { logout(); }}
           >
             <LogOut className="w-3.5 h-3.5" />
             Cerrar Sesión
