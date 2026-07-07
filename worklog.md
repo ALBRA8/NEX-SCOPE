@@ -96,3 +96,26 @@ Stage Summary:
 - DB SQLite: 7 users, 5 niches, 2 channels, 4 messages, 2 plans, 1 setting
 
 Conclusión: La Pieza 4 (Persistencia de Datos) está COMPLETA y VERIFICADA. Los 4 modelos Prisma (SavedNiche, SavedChannel, ChatMessage, ContentPlan) ahora se usan activamente, las 4 rutas API (saved-niches, saved-channels, chat-messages, content-plans) manejan CRUD con autenticación, y el store Zustand hace carga paralela + optimistic UI con rollback. Los datos sobreviven recargas.
+---
+Task ID: no-mocks-refactor
+Agent: main
+Task: Eliminar TODOS los mocks del proyecto y hacer todas las vistas 100% funcionales con APIs reales.
+
+Work Log:
+- Creados 5 nuevos endpoints API: /api/keywords, /api/monetization, /api/competitor-analysis, /api/trends, /api/dashboard
+- Reescritas 9 vistas sin mocks: KeywordExplorerView, TrendsView, DashboardView, MonetizationView, CompetitorMatrixView, NicheFinderView, ChannelAnalyzerView, ContentGapView, ContentPlanView
+- Creado hook useAIStatus para detectar disponibilidad de Z.ai en runtime
+- Creado componente AIModeBanner para mostrar estado de IA en cada vista
+- Eliminado mock-data.ts (solo quedó categories export como referencia)
+- Zero imports de mock-data en todo src/
+- Todos los endpoints devuelven códigos HTTP correctos: 503 AI_UNAVAILABLE, 400 validación, 401 auth
+- Health check funciona con cache de 60s
+- TypeScript compila sin errores nuevos (solo preexistentes de LandingPage y recharts)
+
+Stage Summary:
+- **0 mocks restantes** en todo el proyecto
+- 7 endpoints Z.ai: /api/chat, /api/content-gaps, /api/content-plan, /api/keywords, /api/monetization, /api/competitor-analysis, /api/trends
+- 1 endpoint datos usuario: /api/dashboard (requiere auth)
+- 1 health check: /api/health
+- Todas las vistas muestran estados claros: loading → resultado IA o error con retry
+- Cuando Z.ai esté accesible (endpoint interno resuelva), todas las vistas funcionarán de inmediato

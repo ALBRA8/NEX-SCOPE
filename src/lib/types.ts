@@ -30,7 +30,7 @@ export type CategoryType =
 export interface Niche {
   id: string;
   name: string;
-  category: CategoryType;
+  category: string;
   nicheScore: number;
   subscriberRange: string;
   estimatedRPM: number;

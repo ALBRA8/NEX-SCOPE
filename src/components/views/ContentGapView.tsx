@@ -1,40 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import { niches } from '@/lib/mock-data';
+// No more mock imports — all data comes from Z.ai API
 import { ContentGap } from '@/lib/types';
 import { useAIStatus } from '@/hooks/use-ai-status';
 import { AIModeBanner } from '@/components/shared/AIModeBanner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ZAxis,
 } from 'recharts';
-import { Puzzle, Loader2, Lightbulb, Search, ArrowRight, AlertCircle } from 'lucide-react';
+import { Puzzle, Loader2, Lightbulb, ArrowRight, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 
-// Demo data — clearly labeled as such. Used only when AI is unavailable
-// AND the user has explicitly requested demo mode.
-const demoGaps: ContentGap[] = [
-  { topic: 'IA para principiantes en español', searchVolume: 45000, existingVideos: 120, opportunityScore: 92, suggestedTitle: 'IA desde Cero: Guía Completa en Español 2026' },
-  { topic: 'Automatización con ChatGPT', searchVolume: 38000, existingVideos: 85, opportunityScore: 88, suggestedTitle: '10 Automatizaciones con ChatGPT que Ahorrarán Horas' },
-  { topic: 'Notion para freelancers', searchVolume: 22000, existingVideos: 45, opportunityScore: 85, suggestedTitle: 'Sistema Notion Definitivo para Freelancers' },
-  { topic: 'Finanzas para jóvenes', searchVolume: 65000, existingVideos: 200, opportunityScore: 80, suggestedTitle: 'Finanzas a los 20: Lo que Nadie te Enseña' },
-  { topic: 'Yoga en casa sin equipamiento', searchVolume: 28000, existingVideos: 90, opportunityScore: 78, suggestedTitle: '30 Días de Yoga en Casa: Transforma tu Cuerpo' },
-  { topic: 'Cocina vegana económica', searchVolume: 18000, existingVideos: 35, opportunityScore: 82, suggestedTitle: 'Cocina Vegana por $5 al Día: Meal Prep Semanal' },
-  { topic: 'Streaming para principiantes', searchVolume: 32000, existingVideos: 110, opportunityScore: 75, suggestedTitle: 'Cómo Empezar a Hacer Streaming desde Cero' },
-  { topic: 'Inversiones en ETFs', searchVolume: 42000, existingVideos: 150, opportunityScore: 72, suggestedTitle: 'ETFs para Principiantes: Guía Definitiva 2026' },
-];
-
-type Mode = 'idle' | 'ai' | 'demo' | 'error';
+type Mode = 'idle' | 'ai' | 'error';
 
 export function ContentGapView() {
   const [niche, setNiche] = useState('');
@@ -80,13 +64,9 @@ export function ContentGapView() {
     }
   };
 
-  const handleUseDemo = () => {
-    setGaps(demoGaps);
-    setMode('demo');
-    setErrorMsg('');
-  };
 
-  const displayGaps = gaps.length > 0 ? gaps : (mode === 'demo' ? demoGaps : []);
+
+  const displayGaps = gaps;
   const scatterData = displayGaps.map(g => ({
     x: g.existingVideos,
     y: g.searchVolume,
@@ -106,30 +86,19 @@ export function ContentGapView() {
         loading={aiStatus.loading}
         error={aiStatus.error}
         onRetry={recheckAI}
-        onUseDemo={handleUseDemo}
       />
 
       <Card>
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
-              <Select value={niche} onValueChange={setNiche}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un nicho..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {niches.map(n => (
-                    <SelectItem key={n.id} value={n.name}>{n.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                placeholder="Escribe un nicho (ej: Finanzas Personales, Gaming...)"
+                value={niche}
+                onChange={(e) => setNiche(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAnalyze()}
+              />
             </div>
-            <Input
-              placeholder="O escribe un nicho personalizado..."
-              className="flex-1"
-              value={niche}
-              onChange={(e) => setNiche(e.target.value)}
-            />
             <Button onClick={handleAnalyze} disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Puzzle className="w-4 h-4 mr-2" />}
               Analizar Brechas
@@ -150,9 +119,7 @@ export function ContentGapView() {
                 <Button variant="outline" size="sm" className="text-xs h-7" onClick={handleAnalyze}>
                   Reintentar IA
                 </Button>
-                <Button variant="outline" size="sm" className="text-xs h-7" onClick={handleUseDemo}>
-                  Ver datos demo
-                </Button>
+
               </div>
             </div>
           </CardContent>
@@ -171,17 +138,12 @@ export function ContentGapView() {
       )}
 
       {/* Results — only when we actually have data */}
-      {(mode === 'ai' || mode === 'demo') && displayGaps.length > 0 && (
+      {mode === 'ai' && displayGaps.length > 0 && (
         <>
           {/* Mode badge */}
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className={cn(
-              'text-[10px] gap-1',
-              mode === 'ai'
-                ? 'border-emerald-500/30 text-emerald-600'
-                : 'border-amber-500/30 text-amber-600'
-            )}>
-              {mode === 'ai' ? 'Generado por IA' : 'Datos demo'}
+            <Badge variant="outline" className="text-[10px] gap-1 border-emerald-500/30 text-emerald-600">
+              Generado por IA
             </Badge>
             <span className="text-xs text-muted-foreground">{displayGaps.length} brechas encontradas</span>
           </div>
