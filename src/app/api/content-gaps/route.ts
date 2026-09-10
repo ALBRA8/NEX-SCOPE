@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
+import { extractJson } from '@/lib/extract-json';
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,21 +36,14 @@ Devuelve exactamente 8 brechas de contenido. Los datos deben ser realistas para 
 
     const content = response.choices?.[0]?.message?.content || '';
 
-    try {
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed.gaps) && parsed.gaps.length > 0) {
-        return NextResponse.json({ gaps: parsed.gaps, source: 'ai' });
-      }
-      return NextResponse.json(
-        { error: 'La IA respondió en formato inesperado. Intenta de nuevo.', raw: content.substring(0, 200) },
-        { status: 502 }
-      );
-    } catch (parseErr) {
-      return NextResponse.json(
-        { error: 'La IA no devolvió JSON válido. Intenta de nuevo.', raw: content.substring(0, 200) },
-        { status: 502 }
-      );
+    const parsed = extractJson(content);
+    if (parsed && Array.isArray(parsed.gaps) && parsed.gaps.length > 0) {
+      return NextResponse.json({ gaps: parsed.gaps, source: 'ai' });
     }
+    return NextResponse.json(
+      { error: 'La IA no devolvió un JSON válido. Intenta de nuevo.', raw: content.substring(0, 200) },
+      { status: 502 }
+    );
   } catch (error: any) {
     console.error('Content gaps API error:', error);
 

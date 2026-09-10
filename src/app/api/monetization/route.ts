@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
+import { extractJson } from '@/lib/extract-json';
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,21 +46,14 @@ Los valores deben ser realistas para YouTube en español. Incluye 10 nichos en r
 
     const content = response.choices?.[0]?.message?.content || '';
 
-    try {
-      const parsed = JSON.parse(content);
-      if (parsed.rpm && parsed.monthlyRevenue) {
-        return NextResponse.json({ ...parsed, source: 'ai' });
-      }
-      return NextResponse.json(
-        { error: 'La IA respondió en formato inesperado.' },
-        { status: 502 }
-      );
-    } catch {
-      return NextResponse.json(
-        { error: 'La IA no devolvió JSON válido. Intenta de nuevo.' },
-        { status: 502 }
-      );
+    const parsed = extractJson(content);
+    if (parsed && parsed.rpm && parsed.monthlyRevenue) {
+      return NextResponse.json({ ...parsed, source: 'ai' });
     }
+    return NextResponse.json(
+      { error: 'La IA no devolvió un JSON válido. Intenta de nuevo.', raw: content.substring(0, 200) },
+      { status: 502 }
+    );
   } catch (error: any) {
     console.error('Monetization API error:', error);
     const isNetworkError =

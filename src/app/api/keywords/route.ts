@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
+import { extractJson } from '@/lib/extract-json';
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,21 +40,14 @@ Genera exactamente 15 keywords relevantes para el nicho dado. Los datos deben se
 
     const content = response.choices?.[0]?.message?.content || '';
 
-    try {
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed.keywords) && parsed.keywords.length > 0) {
-        return NextResponse.json({ keywords: parsed.keywords, source: 'ai' });
-      }
-      return NextResponse.json(
-        { error: 'La IA respondió en formato inesperado. Intenta de nuevo.' },
-        { status: 502 }
-      );
-    } catch {
-      return NextResponse.json(
-        { error: 'La IA no devolvió JSON válido. Intenta de nuevo.' },
-        { status: 502 }
-      );
+    const parsed = extractJson(content);
+    if (parsed && Array.isArray(parsed.keywords) && parsed.keywords.length > 0) {
+      return NextResponse.json({ keywords: parsed.keywords, source: 'ai' });
     }
+    return NextResponse.json(
+      { error: 'La IA no devolvió un JSON válido. Intenta de nuevo.', raw: content.substring(0, 200) },
+      { status: 502 }
+    );
   } catch (error: any) {
     console.error('Keywords API error:', error);
     const isNetworkError =

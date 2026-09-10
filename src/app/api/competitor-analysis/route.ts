@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
+import { extractJson } from '@/lib/extract-json';
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,15 +46,14 @@ export async function POST(req: NextRequest) {
 
     const content = response.choices?.[0]?.message?.content || '';
 
-    try {
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed.analysis)) {
-        return NextResponse.json({ ...parsed, source: 'ai' });
-      }
-      return NextResponse.json({ error: 'Formato inesperado de la IA.' }, { status: 502 });
-    } catch {
-      return NextResponse.json({ error: 'La IA no devolvió JSON válido.' }, { status: 502 });
+    const parsed = extractJson(content);
+    if (parsed && Array.isArray(parsed.analysis)) {
+      return NextResponse.json({ ...parsed, source: 'ai' });
     }
+    return NextResponse.json(
+      { error: 'La IA no devolvió un JSON válido. Intenta de nuevo.', raw: content.substring(0, 200) },
+      { status: 502 }
+    );
   } catch (error: any) {
     console.error('Competitor analysis API error:', error);
     const isNetworkError =
