@@ -174,3 +174,20 @@ Stage Summary:
 - 6 endpoints IA verificados con datos reales (source:"ai")
 - Página en blanco resuelta (era el dev server muerto, no un bug de código)
 - extractJson.ts es robusto: maneja fences, texto extra, trailing commas, comillas simples
+
+---
+Task ID: zip-verify-clean-env
+Agent: main
+Task: Verificar Nexcom.ZIP en entorno limpio (extraer, instalar, crear DB, build, arrancar, probar) y dejar download/ solo con el ZIP final.
+
+Work Log:
+- Bug 1 encontrado y corregido: .env del ZIP tenía ruta ABSOLUTA del sandbox (file:/home/z/my-project/db/custom.db). Cambiado a ruta relativa portable: DATABASE_URL=file:../db/custom.db (resuelve relativo a prisma/schema.prisma). Añadida carpeta db/ con .gitkeep.
+- Bug 2 encontrado y corregido: script "start" usaba bun (no portable) y el servidor standalone de Next NO carga .env. Nuevo start: NODE_ENV=production DATABASE_URL=file:$(pwd)/db/custom.db node .next/standalone/server.js
+- Nota: el shell del sandbox exporta DATABASE_URL global que sobrescribe el .env de Prisma — en máquinas reales no ocurre; en tests se usó env -u DATABASE_URL.
+- Verificación E2E en /home/z/zip-verify (limpio): npm install (581 pkgs OK), npx prisma db push (DB creada desde cero, 61KB), npm run build (20 rutas API OK), npm start puerto 3100 (home 200), register/login/me/logout OK, POST saved-niches + GET OK, POST /api/keywords → 15 keywords reales source:"ai" en 20.3s, auth gate 401 OK.
+- ZIP final reconstruido con las 2 correcciones + README ampliado (sección producción + verificación).
+- Artefactos de verificación eliminados (zip-verify, temporales). Dev server del proyecto principal restaurado en puerto 3000 (HTTP 200 + health available:true).
+
+Stage Summary:
+- Nexcom.ZIP final (272KB, 158 archivos) VERIFICADO en entorno limpio: instalación → DB → build → producción → auth → persistencia → IA real, todo verde.
+- download/ contiene únicamente Nexcom.ZIP.
