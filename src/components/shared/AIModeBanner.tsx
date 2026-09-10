@@ -11,27 +11,21 @@ interface AIModeBannerProps {
   loading: boolean;
   error?: string;
   onRetry?: () => void;
-  /**
-   * When AI is unavailable, the view falls back to demo data.
-   * This callback lets the user explicitly request demo data.
-   */
-  onUseDemo?: () => void;
   className?: string;
 }
 
 /**
  * Compact status banner shown at the top of AI-powered views.
  * Communicates 3 states:
- *   1. AI available (green) — live data
- *   2. AI unavailable (amber) — falling back to demo data
- *   3. Loading (gray) — checking
+ *   1. AI available (green) — live data from Z.ai
+ *   2. AI unavailable (amber) — view shows an empty / error state, no fake data
+ *   3. Loading (gray) — checking connection
  */
 export function AIModeBanner({
   available,
   loading,
   error,
   onRetry,
-  onUseDemo,
   className,
 }: AIModeBannerProps) {
   if (loading) {
@@ -63,7 +57,7 @@ export function AIModeBanner({
     );
   }
 
-  // Unavailable
+  // Unavailable — no fake data, just a clear status + retry
   return (
     <Card className={cn('border-amber-500/30 bg-amber-500/5', className)}>
       <CardContent className="p-3 flex items-start justify-between gap-2 flex-wrap">
@@ -75,7 +69,7 @@ export function AIModeBanner({
                 <AlertTriangle className="w-3 h-3" /> IA no disponible
               </Badge>
               <span className="text-xs text-muted-foreground">
-                Mostrando datos de demostración. La IA volverá cuando se restablezca la conexión.
+                No se pudieron generar datos en este momento. Reintenta en unos segundos.
               </span>
             </div>
             {error && (
@@ -86,11 +80,6 @@ export function AIModeBanner({
           </div>
         </div>
         <div className="flex gap-1 shrink-0">
-          {onUseDemo && (
-            <Button size="sm" variant="outline" className="text-xs h-7" onClick={onUseDemo}>
-              Ver demo
-            </Button>
-          )}
           {onRetry && (
             <Button size="sm" variant="outline" className="text-xs h-7" onClick={onRetry}>
               <RefreshCw className="w-3 h-3 mr-1" />
