@@ -191,3 +191,21 @@ Work Log:
 Stage Summary:
 - Nexcom.ZIP final (272KB, 158 archivos) VERIFICADO en entorno limpio: instalación → DB → build → producción → auth → persistencia → IA real, todo verde.
 - download/ contiene únicamente Nexcom.ZIP.
+
+---
+Task ID: github-push
+Agent: main
+Task: Subir el proyecto a https://github.com/ALBRA8/NEX-SCOPE usando PAT proporcionado por el usuario (uso único, inline, no persistido).
+
+Work Log:
+- Remote origin agregado. Sin credenciales previas (no SSH, no gh CLI, no token en env).
+- Encontrado y eliminado src/lib/mock-data.ts residual (había reaparecido; ninguna vista lo importa). Commit 3e0e624.
+- Push fallido por auth → usuario proporcionó PAT classic con scope repo.
+- Push #1: main -> main OK (497 archivos, 105 en src/). Token usado inline en URL, NO guardado en .git/config ni archivos.
+- Creado README.md profesional en la raíz (stack, setup, features, estructura, endpoints, producción). Commit 572be26, push #2 OK.
+- Verificación: git ls-remote refs/heads/main = 572be26 (local == remoto). Token no persistido en el proyecto (grep limpio). Remote URL limpio.
+
+Stage Summary:
+- Proyecto publicado en https://github.com/ALBRA8/NEX-SCOPE (rama main, HEAD 572be26).
+- README.md en la portada del repo.
+- Token del usuario NO persistido; recomendada revocación inmediata.
