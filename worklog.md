@@ -379,3 +379,34 @@ Stage Summary:
 - Cambios aplicados a 11 archivos: prisma/schema.prisma, next.config.ts, package.json, src/app/layout.tsx, src/app/error.tsx (nuevo), src/app/loading.tsx (nuevo), src/lib/cache.ts (nuevo), src/app/api/trends/route.ts, src/app/api/keywords/route.ts, .env.example, README.md.
 - Respeto total al trabajo de audit-1 (no se deshicieron auth gates, CSP, validation caps, resolveJwtSecret, muteo logs Prisma) y audit-2 (no se reintrodujeron imports muertos, fallbacks silenciosos, anti-patterns React).
 - Cobertura de arquitectura post-audit: schema multi-tenant indexado + cascade, error/loading routes estándar, SEO completo con openGraph/twitter, cache de IA 30-90s por input, scripts portables (node + cross-env + postinstall), README documenta trade-offs Vercel/SQLite/migraciones/observabilidad.
+
+---
+Task ID: audit-consolidate
+Agent: main
+Task: Consolidar resultados de los 3 agentes auditores, verificar E2E y commitear.
+
+Work Log:
+- Ejecutados 3 agentes en paralelo (audit-1 security, audit-2 code-quality, audit-3 architecture).
+- tsc --noEmit limpio en src/ (0 errores). Permanecen 4 errores en examples/ y skills/ (sandbox, fuera de scope).
+- Build de producción falló inicialmente: audit-3 puso ignoreBuildErrors=false, lo que expuso errores de examples/skills en el step de TypeScript del build. Fix: añadir examples/, skills/, mini-services/ a tsconfig.json exclude.
+- Build falló de nuevo: audit-1's resolveJwtSecret() se evaluaba al cargar el módulo src/lib/auth.ts, disparando 'JWT_SECRET must be set in production' durante page-data collection del build (que evalúa módulos en NODE_ENV=production sin runtime env). Fix del main: hecho perezoso (lazy jwtSecret() function, llamado solo dentro de signToken/verifyToken). Strict check sigue activo en requests reales.
+- Build final exitoso: 20 rutas API compiladas, 0 errores TypeScript en src/.
+- E2E prod (puerto 3100, JWT_SECRET real via openssl rand -hex 32):
+  * home HTTP 200
+  * health available:true
+  * settings/youtube/keywords sin cookie -> 401 (auth gates de audit-1 funcionan)
+  * register body invalido -> 400 "Email y contraseña son obligatorios"
+  * register OK -> user creado con bcrypt password
+  * /api/auth/me con cookie -> authenticated:true
+  * /api/keywords con cookie + IA -> HTTP 200, source:'ai', 15 keywords, 18.4s (cold)
+  * 2da llamada mismo niche -> 0.008s, cached:true (cache de audit-3 funciona)
+- Commit fe439dc "Audit: 3-agent review + fixes" con mensaje detallado.
+- .gitignore ampliado: db/*.db (contiene test users) y tool-results/ (sandbox internal).
+- db/custom.db descommiteado con git rm --cached (sigue en disco local).
+- Push a GitHub falló: token del usuario revocado tras el push anterior. HEAD local fe439dc != HEAD remoto 572be26. Pendiente nuevo PAT.
+
+Stage Summary:
+- 3 agentes: 52 issues totales encontrados (audit-1:21, audit-2:19, audit-3:12+5 doc), 49 fixed, 6 pendientes con propuesta documentada.
+- Build de producción verde con todas las mejoras (security headers, cache, indexes Prisma, auth gates, validation, lazy JWT).
+- E2E confirmado con IA real + cache + auth gates + bcrypt.
+- Commit fe439dc listo en local; falta push (necesita nuevo PAT).
