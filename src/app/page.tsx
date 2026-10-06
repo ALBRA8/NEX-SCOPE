@@ -33,7 +33,7 @@ const viewLabels: Record<string, string> = {
   'competitor-matrix': 'Matriz de Competencia',
   'content-plan': 'Plan de Contenido',
   'keyword-explorer': 'Explorador de Keywords',
-  'ai-chat': 'Asistente IA',
+  'ai-chat': 'Agente IA',
   'settings': 'Configuración',
 };
 

@@ -43,7 +43,7 @@ const menuItems: { id: ViewType; label: string; icon: React.ElementType }[] = [
   { id: 'competitor-matrix', label: 'Matriz de Competencia', icon: Swords },
   { id: 'content-plan', label: 'Plan de Contenido', icon: CalendarDays },
   { id: 'keyword-explorer', label: 'Explorador Keywords', icon: KeyRound },
-  { id: 'ai-chat', label: 'Asistente IA', icon: Bot },
+  { id: 'ai-chat', label: 'Agente IA', icon: Bot },
 ];
 
 export function AppSidebar() {
