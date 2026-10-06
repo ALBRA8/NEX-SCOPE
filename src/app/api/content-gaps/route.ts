@@ -3,6 +3,7 @@ import ZAI from 'z-ai-web-dev-sdk';
 import { extractJson } from '@/lib/extract-json';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { logError } from '@/lib/errors';
+import { aiProvenance, wrapWithProvenance } from '@/lib/provenance';
 
 export async function POST(req: NextRequest) {
   // ━━ Auth gate ━━
@@ -44,7 +45,9 @@ export async function POST(req: NextRequest) {
     }
   ]
 }
-Devuelve exactamente 8 brechas de contenido. Los datos deben ser realistas para el nicho dado.`
+Devuelve exactamente 8 brechas de contenido.
+
+IMPORTANTE: Los valores de searchVolume y existingVideos son ESTIMACIONES generadas por ti (modelo de lenguaje), NO datos oficiales de YouTube. Genéralos como hipótesis razonables basadas en tu conocimiento del nicho, pero recuerda que son estimaciones, no hechos verificables.`
         },
         {
           role: 'user',
@@ -57,7 +60,7 @@ Devuelve exactamente 8 brechas de contenido. Los datos deben ser realistas para 
 
     const parsed = extractJson(content);
     if (parsed && Array.isArray(parsed.gaps) && parsed.gaps.length > 0) {
-      return NextResponse.json({ gaps: parsed.gaps, source: 'ai' });
+      return NextResponse.json(wrapWithProvenance({ gaps: parsed.gaps, source: 'ai' }, aiProvenance()));
     }
     return NextResponse.json(
       { error: 'La IA no devolvió un JSON válido. Intenta de nuevo.', raw: content.substring(0, 200) },

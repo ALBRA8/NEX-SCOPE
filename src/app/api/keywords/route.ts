@@ -4,6 +4,7 @@ import { extractJson } from '@/lib/extract-json';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { logError } from '@/lib/errors';
 import { cacheGet, cacheSet, buildCacheKey } from '@/lib/cache';
+import { aiProvenance, wrapWithProvenance } from '@/lib/provenance';
 
 // AI calls take 5–30 s; cache by niche for 30 s so multiple authenticated
 // users hitting the same query share the result. Short TTL keeps freshness
@@ -55,7 +56,9 @@ export async function POST(req: NextRequest) {
     }
   ]
 }
-Genera exactamente 15 keywords relevantes para el nicho dado. Los datos deben ser realistas. Los valores de trend representan el volumen mensual de búsqueda en los últimos 12 meses.`
+Genera exactamente 15 keywords relevantes para el nicho dado.
+
+IMPORTANTE: Los valores de volume, competition, cpc y trend son ESTIMACIONES generadas por ti (modelo de lenguaje), NO datos oficiales de Google/YouTube. Genéralos como hipótesis razonables basadas en tu conocimiento del nicho, pero recuerda que son estimaciones, no hechos verificables.`
         },
         {
           role: 'user',
@@ -69,7 +72,10 @@ Genera exactamente 15 keywords relevantes para el nicho dado. Los datos deben se
     const parsed = extractJson(content);
     if (parsed && Array.isArray(parsed.keywords) && parsed.keywords.length > 0) {
       cacheSet(cacheKey, { keywords: parsed.keywords }, KEYWORDS_CACHE_TTL_MS);
-      return NextResponse.json({ keywords: parsed.keywords, source: 'ai' });
+      return NextResponse.json(wrapWithProvenance(
+        { keywords: parsed.keywords, source: 'ai' },
+        aiProvenance()
+      ));
     }
     return NextResponse.json(
       { error: 'La IA no devolvió un JSON válido. Intenta de nuevo.', raw: content.substring(0, 200) },

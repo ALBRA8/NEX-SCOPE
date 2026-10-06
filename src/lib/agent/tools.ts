@@ -11,6 +11,8 @@ import { db } from '@/lib/db';
 import ZAI from 'z-ai-web-dev-sdk';
 import { extractJson } from '@/lib/extract-json';
 import { safeErrorMessage } from '@/lib/errors';
+import { aiProvenance, wrapWithProvenance } from '@/lib/provenance';
+import { recordMemory, recallMemories } from '@/lib/memory';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // TYPES
@@ -234,13 +236,18 @@ export const TOOLS: ToolDef[] = [
     { "keyword": "string", "volume": number, "competition": number_0_100, "cpc": number_usd, "trend": [number_x12], "relatedKeywords": ["string","string","string","string"] }
   ]
 }
-Genera exactamente 15 keywords relevantes para el nicho. Datos realistas.`,
+Genera exactamente 15 keywords relevantes para el nicho.
+
+IMPORTANTE: Los valores de volume, competition, cpc y trend son ESTIMACIONES generadas por ti (modelo de lenguaje), NO datos oficiales de Google/YouTube. Genéralos como hipótesis razonables basadas en tu conocimiento del nicho, pero recuerda que son estimaciones, no hechos verificables.`,
         `Genera keywords para el nicho: ${niche}`
       );
       if (!parsed || !Array.isArray(parsed.keywords) || parsed.keywords.length === 0) {
         throw new Error('La IA no devolvió keywords válidos');
       }
-      return { count: parsed.keywords.length, keywords: parsed.keywords };
+      return wrapWithProvenance(
+        { count: parsed.keywords.length, keywords: parsed.keywords },
+        aiProvenance()
+      );
     },
   },
 
@@ -260,7 +267,9 @@ Genera exactamente 15 keywords relevantes para el nicho. Datos realistas.`,
     { "name": "string", "category": "string", "growthRate": number, "trendVelocity": number, "nicheScore": number_0_100, "monthlySearchVolume": number, "estimatedRPM": number, "competitionLevel": "bajo|medio|alto", "description": "string" }
   ]
 }
-Genera 10 tendencias principales ahora.`,
+Genera 10 tendencias principales.
+
+IMPORTANTE: Los valores de growthRate, trendVelocity, nicheScore, monthlySearchVolume y estimatedRPM son ESTIMACIONES generadas por ti (modelo de lenguaje), NO datos oficiales de YouTube Trends. Genéralos como hipótesis razonables, pero recuerda que son estimaciones, no hechos verificables.`,
         niche
           ? `Genera tendencias de YouTube para el área: ${niche}`
           : 'Genera las principales tendencias de YouTube en español ahora'
@@ -268,7 +277,10 @@ Genera 10 tendencias principales ahora.`,
       if (!parsed || !Array.isArray(parsed.trends) || parsed.trends.length === 0) {
         throw new Error('La IA no devolvió tendencias válidas');
       }
-      return { count: parsed.trends.length, trends: parsed.trends };
+      return wrapWithProvenance(
+        { count: parsed.trends.length, trends: parsed.trends },
+        aiProvenance()
+      );
     },
   },
 
@@ -289,13 +301,18 @@ Genera 10 tendencias principales ahora.`,
     { "topic": "string", "searchVolume": number, "existingVideos": number, "opportunityScore": number_1_100, "suggestedTitle": "string" }
   ]
 }
-Devuelve exactamente 8 brechas de contenido realistas.`,
+Devuelve exactamente 8 brechas de contenido.
+
+IMPORTANTE: Los valores de searchVolume y existingVideos son ESTIMACIONES generadas por ti (modelo de lenguaje), NO datos oficiales de YouTube. Genéralos como hipótesis razonables basadas en tu conocimiento del nicho, pero recuerda que son estimaciones, no hechos verificables.`,
         `Analiza las brechas de contenido para el nicho: ${niche}`
       );
       if (!parsed || !Array.isArray(parsed.gaps) || parsed.gaps.length === 0) {
         throw new Error('La IA no devolvió brechas válidas');
       }
-      return { count: parsed.gaps.length, gaps: parsed.gaps };
+      return wrapWithProvenance(
+        { count: parsed.gaps.length, gaps: parsed.gaps },
+        aiProvenance()
+      );
     },
   },
 
@@ -318,13 +335,18 @@ Devuelve exactamente 8 brechas de contenido realistas.`,
     { "title": "string", "description": "string", "keywords": ["string","string","string"], "estimatedViews": number, "difficulty": "fácil|medio|difícil", "format": "Tutorial|Review|Análisis|Lista|Vlog|Q&A|Live|Entrevista|Serie|Noticias|Opinión", "week": number_1_10 }
   ]
 }
-Genera exactamente 30 ideas de video realistas y variadas.`,
+Genera exactamente 30 ideas de video.
+
+IMPORTANTE: Los valores de estimatedViews y difficulty son ESTIMACIONES generadas por ti (modelo de lenguaje), NO datos oficiales de YouTube. Genéralos como hipótesis razonables basadas en tu conocimiento del nicho y audiencia, pero recuerda que son estimaciones, no hechos verificables.`,
         `Genera un plan de contenido de 30 videos para el nicho "${niche}" con audiencia "${audience}"`
       );
       if (!parsed || !Array.isArray(parsed.plan) || parsed.plan.length === 0) {
         throw new Error('La IA no devolvió un plan válido');
       }
-      return { count: parsed.plan.length, plan: parsed.plan };
+      return wrapWithProvenance(
+        { count: parsed.plan.length, plan: parsed.plan },
+        aiProvenance()
+      );
     },
   },
 
@@ -352,13 +374,15 @@ Genera exactamente 30 ideas de video realistas y variadas.`,
   "monthlyRevenue": number,
   "annualRevenue": number,
   "rpmByNiche": [{"niche": "string", "rpm": number}]
-}`,
+}
+
+IMPORTANTE: Todos los valores numéricos son ESTIMACIONES generadas por ti (modelo de lenguaje), NO datos oficiales de YouTube Ads. Genéralos como hipótesis razonables basadas en rangos típico del nicho, pero recuerda que son estimaciones, no hechos verificables.`,
         `Calcula la monetización para el nicho "${niche}" con ${subscribers} suscriptores y ${viewsPerMonth} vistas/mes.`
       );
       if (!parsed || !parsed.rpm || !parsed.monthlyRevenue) {
         throw new Error('La IA no devolvió una estimación válida');
       }
-      return parsed;
+      return wrapWithProvenance(parsed, aiProvenance());
     },
   },
 
@@ -454,6 +478,103 @@ Genera exactamente 30 ideas de video realistas y variadas.`,
         totalViews: Number(ch.statistics?.viewCount || 0),
         videoCount: Number(ch.statistics?.videoCount || 0),
         keywords: ch.brandingSettings?.channel?.keywords,
+      };
+    },
+  },
+
+  // ─── MEMORY TOOLS (agent's own long-term memory) ───────────────
+  {
+    name: 'recall_memory',
+    description:
+      'Recupera memorias previamente guardadas por el agente para el usuario actual (observaciones, hechos, planes previos, etc.). Úsalo ANTES de generar una recomendación para evitar duplicar trabajo y para personalizar la respuesta con el contexto histórico del usuario. Devuelve { count, memories[] } ordenadas por relevancia.',
+    parameters: {
+      query: {
+        type: 'string',
+        description: 'Texto de búsqueda (palabras clave). Coincidencia parcial en el contenido.',
+      },
+      type: {
+        type: 'string',
+        description: 'Filtrar por tipo de memoria',
+        enum: ['EPISODIC', 'SEMANTIC', 'FACTUAL', 'PROCEDURAL'],
+      },
+      limit: {
+        type: 'number',
+        description: 'Máximo número de memorias a devolver (default 10, máx 50)',
+      },
+    },
+    executor: async (args, ctx) => {
+      const memories = await recallMemories(ctx.userId, {
+        q: typeof args.query === 'string' ? args.query : undefined,
+        type: typeof args.type === 'string' ? args.type : undefined,
+        limit: Math.min(Number(args.limit) || 10, 50),
+      });
+      // Trim content for the LLM context window — full content is in the DB.
+      const trimmed = memories.map((m) => ({
+        id: m.id,
+        domain: m.domain,
+        type: m.type,
+        content: m.content.slice(0, 500),
+        source: m.source,
+        confidence: m.confidence,
+        truthLevel: m.truthLevel,
+        relevance: m.relevance,
+        createdAt: m.createdAt,
+      }));
+      return { count: trimmed.length, memories: trimmed };
+    },
+  },
+
+  {
+    name: 'record_memory',
+    description:
+      'Guarda una memoria en la base de conocimiento del usuario para uso futuro del agente. Úsalo cuando observes un hecho estable (ej. "el canal X tiene 50k suscriptores"), una preferencia del usuario (ej. "prefiere nichos de tecnología"), o un plan acordado (ej. "publicará 2 videos/semana sobre IA"). NO lo uses para datos volátiles ni como repositorio de chat. Devuelve { recorded: true, memory }.',
+    parameters: {
+      content: {
+        type: 'string',
+        description: 'Contenido de la memoria (hecho, preferencia o procedimiento). Sé específico.',
+        required: true,
+      },
+      type: {
+        type: 'string',
+        description: 'Tipo de memoria',
+        enum: ['EPISODIC', 'SEMANTIC', 'FACTUAL', 'PROCEDURAL'],
+        required: true,
+      },
+      source: {
+        type: 'string',
+        description: 'Origen de la memoria (ej. "get_channel_stats", "user_input"). Default: "agent:recall".',
+      },
+      confidence: {
+        type: 'number',
+        description: 'Confianza 0..1 (default 0.5). Sube a 0.9 solo si el dato está verificado por fuente externa.',
+      },
+    },
+    executor: async (args, ctx) => {
+      const content = String(args.content || '').trim();
+      const type = String(args.type || '').trim();
+      if (!content) throw new Error('content es requerido');
+      if (!type) throw new Error('type es requerido (EPISODIC|SEMANTIC|FACTUAL|PROCEDURAL)');
+
+      const memory = await recordMemory(ctx.userId, {
+        domain: 'youtube_intelligence',
+        type,
+        content,
+        source: typeof args.source === 'string' && args.source.trim()
+          ? args.source.trim()
+          : 'agent:recall',
+        provenance: 'AI_MODEL',
+        confidence: typeof args.confidence === 'number' ? args.confidence : 0.5,
+        truthLevel: 'ESTIMATED',
+      });
+      return {
+        recorded: true,
+        memory: {
+          id: memory.id,
+          type: memory.type,
+          content: memory.content.slice(0, 500),
+          source: memory.source,
+          confidence: memory.confidence,
+        },
       };
     },
   },

@@ -26,16 +26,18 @@ datasource db {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  name          String?
-  password      String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  savedNiches   SavedNiche[]
-  savedChannels SavedChannel[]
-  chatMessages  ChatMessage[]
-  contentPlans  ContentPlan[]
+  id               String           @id @default(cuid())
+  email            String           @unique
+  name             String?
+  password         String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  savedNiches      SavedNiche[]
+  savedChannels    SavedChannel[]
+  chatMessages     ChatMessage[]
+  contentPlans     ContentPlan[]
+  memories         Memory[]
+  executionTraces  ExecutionTrace[]
 }
 
 model SavedNiche {
@@ -103,4 +105,63 @@ model Setting {
   category  String   @default("general")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Memory — agent memory store
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Stores episodic / semantic / factual / procedural memories generated
+// by the agent tools. Relevance decays over time; duplicate memories are
+// marked as `deprecated` by the consolidation routine. Truth level is
+// always ESTIMATED for AI-generated memories and can be bumped to VERIFIED
+// by explicit user input.
+model Memory {
+  id            String   @id @default(cuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domain        String   // "youtube_intelligence"
+  type          String   // EPISODIC | SEMANTIC | FACTUAL | PROCEDURAL
+  content       String   // contenido de la memoria (texto o JSON string)
+  source        String   // qué herramienta/dato la generó
+  evidence      String?  // JSON opcional con evidencia
+  provenance    String   // AI_MODEL | YOUTUBE_API | USER_INPUT | CONSOLIDATED
+  confidence    Float    @default(0.5) // 0..1
+  truthLevel    String   @default("ESTIMATED") // OBSERVED|VERIFIED|ESTIMATED|MODELED|INFERRED|UNKNOWN
+  scope         String   @default("user") // user|global
+  status        String   @default("active") // active|deprecated|retired
+  relevance     Float    @default(0.5) // 0..1, decae con el tiempo
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastVerified  DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, domain])
+  @@index([userId, type])
+  @@index([userId, status])
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ExecutionTrace — per-agent-run audit log
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// One row per agent invocation. Captures the task, the ordered list of
+// tool calls with their ok/err status, and the final outputs / errors.
+// Useful for debugging, replay and observability of the agent loop.
+model ExecutionTrace {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agentId     String   @default("nexscope-agent")
+  task        String   // mensaje del usuario o descripción
+  tools       String   // JSON array de tool calls ejecutados
+  inputs      String?  // JSON
+  outputs     String?  // JSON
+  errors      String?  // JSON
+  status      String   @default("running") // running|completed|error|aborted
+  startTime   DateTime @default(now())
+  endTime     DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([userId, createdAt])
 }

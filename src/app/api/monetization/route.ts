@@ -3,6 +3,7 @@ import ZAI from 'z-ai-web-dev-sdk';
 import { extractJson } from '@/lib/extract-json';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { logError } from '@/lib/errors';
+import { aiProvenance, wrapWithProvenance } from '@/lib/provenance';
 
 export async function POST(req: NextRequest) {
   // ━━ Auth gate ━━
@@ -54,7 +55,9 @@ export async function POST(req: NextRequest) {
     {"name": "Membresías", "value": porcentaje, "color": "#06b6d4"}
   ]
 }
-Los valores deben ser realistas para YouTube en español. Incluye 10 nichos en rpmByNiche (los más populares en YouTube español). Los porcentajes en revenueBreakdown deben sumar 100.`
+Los valores deben ser razonables para YouTube en español. Incluye 10 nichos en rpmByNiche (los más populares en YouTube español). Los porcentajes en revenueBreakdown deben sumar 100.
+
+IMPORTANTE: Todos los valores numéricos (rpm, cpm, monthlyRevenue, annualRevenue, rpmByNiche) son ESTIMACIONES generadas por ti (modelo de lenguaje), NO datos oficiales de YouTube Ads. Genéralos como hipótesis razonables basadas en rangos típico del nicho, pero recuerda que son estimaciones, no hechos verificables.`
         },
         {
           role: 'user',
@@ -67,7 +70,7 @@ Los valores deben ser realistas para YouTube en español. Incluye 10 nichos en r
 
     const parsed = extractJson(content);
     if (parsed && parsed.rpm && parsed.monthlyRevenue) {
-      return NextResponse.json({ ...parsed, source: 'ai' });
+      return NextResponse.json(wrapWithProvenance({ ...parsed, source: 'ai' }, aiProvenance()));
     }
     return NextResponse.json(
       { error: 'La IA no devolvió un JSON válido. Intenta de nuevo.', raw: content.substring(0, 200) },

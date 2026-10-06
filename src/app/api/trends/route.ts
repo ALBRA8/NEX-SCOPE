@@ -4,6 +4,7 @@ import { extractJson } from '@/lib/extract-json';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { logError } from '@/lib/errors';
 import { cacheGet, cacheSet, buildCacheKey } from '@/lib/cache';
+import { aiProvenance, wrapWithProvenance } from '@/lib/provenance';
 
 // AI calls take 5–95 s; cache by (niche, region) for 90 s so that multiple
 // authenticated users hitting the same query within the window share the
@@ -59,7 +60,9 @@ export async function POST(req: NextRequest) {
     {"month": "Ene", "Tecnología": numero, "Finanzas": numero, "Salud": numero, "Gaming": numero, "Educación": numero, "Cocina": numero}
   ]
 }
-Genera exactamente 12 tendencias relevantes${safeNiche ? ` para el área de "${safeNiche}"` : ''}. Los 12 objetos en trendData corresponden a los últimos 12 meses (Ene-Dic). Los valores deben ser realistas para YouTube en español en la región ${safeRegion}.`
+Genera exactamente 12 tendencias relevantes${safeNiche ? ` para el área de "${safeNiche}"` : ''}. Los 12 objetos en trendData corresponden a los últimos 12 meses (Ene-Dic).
+
+IMPORTANTE: Los valores de growthRate, trendVelocity, nicheScore, monthlySearchVolume y estimatedRPM son ESTIMACIONES generadas por ti (modelo de lenguaje), NO datos oficiales de YouTube Trends. Genéralos como hipótesis razonables basadas en tu conocimiento del nicho, pero recuerda que son estimaciones, no hechos verificables.`
         },
         {
           role: 'user',
@@ -75,7 +78,7 @@ Genera exactamente 12 tendencias relevantes${safeNiche ? ` para el área de "${s
     const parsed = extractJson(content);
     if (parsed && Array.isArray(parsed.trends) && parsed.trends.length > 0) {
       cacheSet(cacheKey, parsed, TRENDS_CACHE_TTL_MS);
-      return NextResponse.json({ ...parsed, source: 'ai' });
+      return NextResponse.json(wrapWithProvenance({ ...parsed, source: 'ai' }, aiProvenance()));
     }
     return NextResponse.json(
       { error: 'La IA no devolvió un JSON válido. Intenta de nuevo.', raw: content.substring(0, 200) },

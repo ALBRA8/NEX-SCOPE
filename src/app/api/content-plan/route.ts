@@ -3,6 +3,7 @@ import ZAI from 'z-ai-web-dev-sdk';
 import { extractJson } from '@/lib/extract-json';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { logError } from '@/lib/errors';
+import { aiProvenance, wrapWithProvenance } from '@/lib/provenance';
 
 export async function POST(req: NextRequest) {
   // ━━ Auth gate ━━
@@ -45,7 +46,9 @@ export async function POST(req: NextRequest) {
     }
   ]
 }
-Genera exactamente 30 ideas de video. Los datos deben ser realistas y variados.`
+Genera exactamente 30 ideas de video.
+
+IMPORTANTE: Los valores de estimatedViews y difficulty son ESTIMACIONES generadas por ti (modelo de lenguaje), NO datos oficiales de YouTube. Genéralos como hipótesis razonables basadas en tu conocimiento del nicho y audiencia, pero recuerda que son estimaciones, no hechos verificables.`
         },
         {
           role: 'user',
@@ -58,7 +61,7 @@ Genera exactamente 30 ideas de video. Los datos deben ser realistas y variados.`
 
     const parsed = extractJson(content);
     if (parsed && Array.isArray(parsed.plan) && parsed.plan.length > 0) {
-      return NextResponse.json({ plan: parsed.plan, source: 'ai' });
+      return NextResponse.json(wrapWithProvenance({ plan: parsed.plan, source: 'ai' }, aiProvenance()));
     }
     return NextResponse.json(
       { error: 'La IA no devolvió un JSON válido. Intenta de nuevo.', raw: content.substring(0, 200) },

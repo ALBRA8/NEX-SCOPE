@@ -19,6 +19,7 @@
 import ZAI from 'z-ai-web-dev-sdk';
 import { executeTool, toolsForPrompt, type ToolContext } from './tools';
 import { extractJson } from '@/lib/extract-json';
+import { startTrace, appendToolCall, finishTrace, type TraceContext } from './trace';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // TYPES
@@ -133,8 +134,9 @@ function parseToolCall(content: string): ToolCall | null {
  *  - the LLM responds without a tool call (yields `message` + `done`), or
  *  - the loop exhausts MAX_ITERATIONS (yields `error`).
  *
- * Errors from the underlying AI call are not caught here — the caller is
- * expected to wrap the `for await` in a try/catch (see route.ts).
+ * Errors from the underlying AI call are caught here so the trace row can
+ * be marked as 'error' before re-throwing; the caller's try/catch in
+ * route.ts still receives the thrown error for SSE error event handling.
  */
 export async function* runAgent(
   userMessage: string,
@@ -151,48 +153,91 @@ export async function* runAgent(
       content: m.content.slice(0, MAX_CONTENT),
     }));
 
+  const safeUserMessage = String(userMessage || '').slice(0, MAX_CONTENT);
+
   const messages: ChatMessage[] = [
     { role: 'system', content: buildSystemPrompt() },
     ...safeHistory,
-    { role: 'user', content: String(userMessage || '').slice(0, MAX_CONTENT) },
+    { role: 'user', content: safeUserMessage },
   ];
 
-  const zai = await ZAI.create();
+  // Start the execution trace row (best-effort: failures here don't break
+  // the loop, they just leave `traceId='trace:disabled'`).
+  const trace: TraceContext = await startTrace(ctx.userId, safeUserMessage);
 
-  for (let i = 0; i < MAX_ITERATIONS; i++) {
-    const response = await zai.chat.completions.create({ messages });
-    const content = response?.choices?.[0]?.message?.content || '';
+  try {
+    const zai = await ZAI.create();
 
-    const toolCall = parseToolCall(content);
+    for (let i = 0; i < MAX_ITERATIONS; i++) {
+      // The AI call itself can throw on network / quota / auth errors.
+      // Catch it here so we can mark the trace 'error' before re-throwing.
+      let response;
+      try {
+        response = await zai.chat.completions.create({ messages });
+      } catch (aiError) {
+        await finishTrace(
+          trace,
+          'error',
+          undefined,
+          { message: aiError instanceof Error ? aiError.message : String(aiError), phase: 'ai_call', iteration: i }
+        );
+        throw aiError;
+      }
+      const content = response?.choices?.[0]?.message?.content || '';
 
-    if (!toolCall) {
-      // No tool call → this is the LLM's final answer to the user.
-      yield { type: 'message', content };
-      yield { type: 'done' };
-      return;
+      const toolCall = parseToolCall(content);
+
+      if (!toolCall) {
+        // No tool call → this is the LLM's final answer to the user.
+        await finishTrace(trace, 'completed', { message: content, iterations: i + 1 });
+        yield { type: 'message', content };
+        yield { type: 'done' };
+        return;
+      }
+
+      // Announce the call, run the tool, announce the result.
+      yield { type: 'tool_call', name: toolCall.name, args: toolCall.args };
+      const exec = await executeTool(toolCall.name, toolCall.args, ctx);
+      if (exec.ok) {
+        yield { type: 'tool_result', name: toolCall.name, ok: true, result: exec.result };
+      } else {
+        yield { type: 'tool_result', name: toolCall.name, ok: false, error: exec.error };
+      }
+
+      // Persist the tool call to the trace row (best-effort).
+      await appendToolCall(trace, {
+        name: toolCall.name,
+        args: toolCall.args,
+        ok: exec.ok,
+        error: exec.ok ? undefined : exec.error,
+      });
+
+      // Feed the assistant's original response and the tool result back into
+      // the conversation so the LLM can decide what to do next.
+      messages.push({
+        role: 'assistant',
+        content: content.slice(0, MAX_CONTENT),
+      });
+      messages.push({
+        role: 'user',
+        content: `Resultado de la herramienta ${toolCall.name}:\n${JSON.stringify(exec).slice(0, MAX_TOOL_RESULT)}\n\nContinúa: usa otra herramienta si lo necesitas, o responde al usuario.`,
+      });
     }
 
-    // Announce the call, run the tool, announce the result.
-    yield { type: 'tool_call', name: toolCall.name, args: toolCall.args };
-    const exec = await executeTool(toolCall.name, toolCall.args, ctx);
-    if (exec.ok) {
-      yield { type: 'tool_result', name: toolCall.name, ok: true, result: exec.result };
-    } else {
-      yield { type: 'tool_result', name: toolCall.name, ok: false, error: exec.error };
-    }
-
-    // Feed the assistant's original response and the tool result back into
-    // the conversation so the LLM can decide what to do next.
-    messages.push({
-      role: 'assistant',
-      content: content.slice(0, MAX_CONTENT),
+    // Ran out of iterations without a final answer.
+    await finishTrace(trace, 'aborted', undefined, {
+      message: 'max iterations reached',
+      iterations: MAX_ITERATIONS,
     });
-    messages.push({
-      role: 'user',
-      content: `Resultado de la herramienta ${toolCall.name}:\n${JSON.stringify(exec).slice(0, MAX_TOOL_RESULT)}\n\nContinúa: usa otra herramienta si lo necesitas, o responde al usuario.`,
+    yield { type: 'error', message: 'El agente alcanzó el máximo de iteraciones.' };
+  } catch (loopError) {
+    // Safety net: if anything unexpected (not just the AI call) escaped
+    // the per-iteration try/catch above, mark the trace 'error' before
+    // re-throwing so the caller's SSE error event handler still fires.
+    await finishTrace(trace, 'error', undefined, {
+      message: loopError instanceof Error ? loopError.message : String(loopError),
+      phase: 'agent_loop',
     });
+    throw loopError;
   }
-
-  // Ran out of iterations without a final answer.
-  yield { type: 'error', message: 'El agente alcanzó el máximo de iteraciones.' };
 }
