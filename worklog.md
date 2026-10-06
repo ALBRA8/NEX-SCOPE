@@ -410,3 +410,40 @@ Stage Summary:
 - Build de producción verde con todas las mejoras (security headers, cache, indexes Prisma, auth gates, validation, lazy JWT).
 - E2E confirmado con IA real + cache + auth gates + bcrypt.
 - Commit fe439dc listo en local; falta push (necesita nuevo PAT).
+
+---
+Task ID: agentic-layer-mcp
+Agent: main
+Task: Transformar el dashboard estático en agente conversacional integrado que opera el sistema + añadir protocolo MCP para interoperabilidad con otros sistemas.
+
+Work Log:
+- Creada capa agéntica completa con 14 herramientas (tools.ts) y loop ReAct (executor.ts) que soporta multi-step: la IA decide qué herramienta llamar, ejecuta, alimenta el resultado de vuelta y continúa hasta tener respuesta final.
+- Endpoint SSE /api/agent: streaming de eventos (tool_call, tool_result, message, error, done) — el frontend los renderiza inline como ToolCards expandibles.
+- Vista AIChatView reescrita como chat agéntico: suggested prompts orientadas a acción, botón Stop para abortar generación, ToolCard con status running/ok/error, args/result colapsables.
+- Sidebar renombrado: "Asistente IA" -> "Agente IA".
+
+MCP SERVER (Model Context Protocol):
+- Endpoint /api/mcp con JSON-RPC 2.0 sobre HTTP, auth requerida.
+- 8 métodos: initialize, ping, tools/list (14), tools/call, resources/list (5), resources/read, prompts/list (4), prompts/get.
+- 5 recursos: nexscope://dashboard, //niches, //channels, //plans, //user.
+- 4 prompts predefinidos: analyze_niche, monetization_report, channel_audit, dashboard_summary.
+- Compatible con protocolo MCP '2024-11-05', soporta batch requests.
+- Cualquier cliente MCP (Claude Desktop, otros agentes, automation tools) puede operar NexScope vía este endpoint.
+
+Verificación E2E (puerto 3100, prod build):
+- Build: 22 rutas API compiladas (incl. /api/agent, /api/mcp).
+- MCP initialize: serverInfo=nexscope v1.0.0, protocolVersion=2024-11-05.
+- MCP tools/list: 14 herramientas.
+- MCP tools/call save_niche: ok, niche guardado en DB.
+- MCP resources/list: 5 recursos.
+- MCP resources/read nexscope://niches: devolvió el nicho guardado.
+- Agente single-tool: 'que nichos tengo?' -> tool_call list_saved_niches -> tool_result -> message markdown (9.7s).
+- Agente multi-tool: 'guarda niche finanzas + 15 keywords' -> tool_call save_niche -> tool_call generate_keywords -> message con tabla markdown (27.5s) — comportamiento agéntico real.
+
+Commit 9aa103e pushed a GitHub (HEAD remoto actualizado).
+
+Stage Summary:
+- NexScope ahora es un SaaS AGÉNTICO con capa MCP para interoperar con otros sistemas.
+- 14 herramientas (read/write/AI/YouTube) accesibles desde el chat y desde cualquier cliente MCP externo.
+- 0 mocks, 0 datos falsos — todo real vía Z.ai SDK + YouTube Data API + Prisma.
+- Cero errores TS en src/.
