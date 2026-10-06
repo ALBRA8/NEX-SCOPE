@@ -12,7 +12,7 @@ import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   Radar, ResponsiveContainer, Legend,
 } from 'recharts';
-import { Swords, Trophy, Plus, X, Search, Loader2, AlertCircle, Youtube } from 'lucide-react';
+import { Swords, Trophy, X, Search, Loader2, AlertCircle, Youtube } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 

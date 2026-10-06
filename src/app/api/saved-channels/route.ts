@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthenticatedUser } from '@/lib/auth';
+import { safeErrorMessage, logError } from '@/lib/errors';
 
 // GET /api/saved-channels — list current user's saved channels
 export async function GET(request: NextRequest) {
@@ -17,8 +18,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ channels });
   } catch (error: any) {
-    console.error('[saved-channels GET]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('saved-channels GET', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Error al cargar canales') },
+      { status: 500 }
+    );
   }
 }
 
@@ -31,18 +35,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Cuerpo de la petición inválido' },
+        { status: 400 }
+      );
+    }
     const { channelId, channelName, subscribers } = body;
 
-    if (!channelId || !channelName) {
+    if (
+      !channelId || typeof channelId !== 'string' ||
+      !channelName || typeof channelName !== 'string'
+    ) {
       return NextResponse.json(
         { error: 'channelId y channelName son requeridos' },
         { status: 400 }
       );
     }
 
+    const safeChannelId = channelId.slice(0, 200);
+    const safeChannelName = channelName.slice(0, 300);
+    const safeSubs = typeof subscribers === 'number' ? subscribers : 0;
+
     const existing = await db.savedChannel.findFirst({
-      where: { userId: user.id, channelId },
+      where: { userId: user.id, channelId: safeChannelId },
     });
 
     if (existing) {
@@ -51,17 +70,20 @@ export async function POST(request: NextRequest) {
 
     const channel = await db.savedChannel.create({
       data: {
-        channelId,
-        channelName,
-        subscribers: typeof subscribers === 'number' ? subscribers : 0,
+        channelId: safeChannelId,
+        channelName: safeChannelName,
+        subscribers: safeSubs,
         userId: user.id,
       },
     });
 
     return NextResponse.json({ channel, saved: true });
   } catch (error: any) {
-    console.error('[saved-channels POST]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('saved-channels POST', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Error al guardar canal') },
+      { status: 500 }
+    );
   }
 }
 
@@ -86,7 +108,10 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ deleted: true });
   } catch (error: any) {
-    console.error('[saved-channels DELETE]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('saved-channels DELETE', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Error al borrar canal') },
+      { status: 500 }
+    );
   }
 }

@@ -26,11 +26,7 @@ import {
   Check,
   Star,
   Sparkles,
-  BarChart3,
   Zap,
-  Globe,
-  Users,
-  ChevronRight,
   Play,
 } from 'lucide-react';
 
@@ -51,13 +47,20 @@ function AnimatedSection({ children, className = '', delay = 0 }: { children: Re
   );
 }
 
-function FloatingBadge({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+type FloatingBadgeProps = {
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+};
+
+function FloatingBadge({ children, className = '', style }: FloatingBadgeProps) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5, delay: 0.8 }}
       className={`absolute px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-md border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 ${className}`}
+      style={style}
     >
       {children}
     </motion.div>
@@ -460,9 +463,11 @@ export function LandingPage() {
                 size="lg"
                 variant="outline"
                 className="border-white/10 hover:bg-white/5 text-white font-medium text-base px-8 h-12 rounded-xl group"
+                onClick={handleQuickStart}
+                disabled={quickStartLoading}
               >
                 <Play className="w-4 h-4 mr-2" />
-                Ver Demo
+                {quickStartLoading ? 'Cargando...' : 'Probar Gratis'}
               </Button>
             </motion.div>
 
@@ -797,7 +802,7 @@ export function LandingPage() {
             <div>
               <h4 className="text-sm font-semibold mb-4">Producto</h4>
               <ul className="space-y-2">
-                {['Funcionalidades', 'Precios', 'Demo'].map((item) => (
+                {['Funcionalidades', 'Precios', 'Testimonios'].map((item) => (
                   <li key={item}>
                     <a href="#" className="text-sm text-gray-500 hover:text-white transition-colors">{item}</a>
                   </li>

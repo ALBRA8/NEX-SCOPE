@@ -1,12 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
 import { extractJson } from '@/lib/extract-json';
+import { getAuthenticatedUser } from '@/lib/auth';
+import { logError } from '@/lib/errors';
+import { cacheGet, cacheSet, buildCacheKey } from '@/lib/cache';
+
+// AI calls take 5–95 s; cache by (niche, region) for 90 s so that multiple
+// authenticated users hitting the same query within the window share the
+// result. See src/lib/cache.ts for trade-offs (single-instance only).
+const TRENDS_CACHE_TTL_MS = 90_000;
 
 export async function POST(req: NextRequest) {
+  // ━━ Auth gate — AI calls cost money; do not allow anonymous access. ━━
+  const user = await getAuthenticatedUser(req);
+  if (!user) {
+    return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
+
   try {
-    const { niche, region } = await req.json();
-    const safeNiche = (niche || '').toString().trim();
-    const safeRegion = (region || 'ES').toString().trim();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Cuerpo de la petición inválido' }, { status: 400 });
+    }
+    const { niche, region } = body;
+    const safeNiche = (niche || '').toString().trim().slice(0, 200);
+    const safeRegion = (region || 'ES').toString().trim().slice(0, 10);
+
+    const cacheKey = buildCacheKey('trends', safeNiche, safeRegion);
+    const cached = cacheGet<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json({ ...cached, source: 'ai', cached: true });
+    }
 
     const zai = await ZAI.create();
 
@@ -48,6 +74,7 @@ Genera exactamente 12 tendencias relevantes${safeNiche ? ` para el área de "${s
 
     const parsed = extractJson(content);
     if (parsed && Array.isArray(parsed.trends) && parsed.trends.length > 0) {
+      cacheSet(cacheKey, parsed, TRENDS_CACHE_TTL_MS);
       return NextResponse.json({ ...parsed, source: 'ai' });
     }
     return NextResponse.json(
@@ -55,7 +82,7 @@ Genera exactamente 12 tendencias relevantes${safeNiche ? ` para el área de "${s
       { status: 502 }
     );
   } catch (error: any) {
-    console.error('Trends API error:', error);
+    logError('Trends API', error);
     const isNetworkError =
       error?.cause?.code === 'UND_ERR_CONNECT_TIMEOUT' ||
       error?.cause?.code === 'ECONNREFUSED' ||
@@ -67,6 +94,6 @@ Genera exactamente 12 tendencias relevantes${safeNiche ? ` para el área de "${s
         { status: 503 }
       );
     }
-    return NextResponse.json({ error: 'Error al generar tendencias.', details: error?.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error al generar tendencias.' }, { status: 500 });
   }
 }

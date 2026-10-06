@@ -209,3 +209,173 @@ Stage Summary:
 - Proyecto publicado en https://github.com/ALBRA8/NEX-SCOPE (rama main, HEAD 572be26).
 - README.md en la portada del repo.
 - Token del usuario NO persistido; recomendada revocación inmediata.
+
+---
+Task ID: audit-1
+Agent: security-auditor
+Task: Auditoría de seguridad del proyecto NexScope — revisión completa + reparación directa
+
+Work Log:
+- Leído worklog previo para entender contexto (auth JWT en cookie httpOnly, 14 endpoints API, Z.ai SDK, SQLite via Prisma).
+- Auditado `src/lib/auth.ts`: secreto JWT con fallback hardcodeado, algoritmo no fijado, expiración 7d.
+- Auditados los 14 archivos en `src/app/api/*/route.ts`: encontrados 8 endpoints sin auth gate (youtube GET/POST, settings GET/POST/DELETE, keywords, trends, content-gaps, content-plan, monetization, competitor-analysis, chat).
+- Auditada validación de input: 13 endpoints hacen `await req.json()` sin try/catch ni tamaño máximo.
+- Auditados los handlers de error: 9 endpoints devuelven `error.message` al cliente (fuga de información).
+- Auditado `next.config.ts`: sin `headers()` de seguridad (sin CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS).
+- Auditado `.gitignore` + `git ls-files`: confirmado que `.env` ESTABA commiteado (solo DATABASE_URL, pero mala práctica).
+- Auditado `src/lib/db.ts`: Prisma con `log: ['query']` en todos los entornos → loguea SQL (posible fuga) en producción.
+- Verificada inyección Prisma: NO hay `$queryRaw` ni `$executeRaw` en el código. Todos los queries usan la API tipada de Prisma (safe by construction).
+- Verificados secretos hardcodeados: NO hay tokens `sk-*`, `AIza*`, `ghp_*`, `gho_*` en `src/`. Solo `process.env.JWT_SECRET` y `process.env.YOUTUBE_API_KEY`.
+
+Issues Found & Fixed:
+- JWT_SECRET con fallback hardcodeado → añadido `resolveJwtSecret()` que lanza error en producción si falta o <32 chars; fallback solo en dev (src/lib/auth.ts:27-46).
+- JWT algoritmo no fijado → pin explícito a HS256 en `sign` y `verify` con `algorithms: ['HS256']` previene confusion attack (src/lib/auth.ts:51, 137-156).
+- JWT expiración 7d → reducida a 24h (default; configurable por env `JWT_EXPIRES_IN`); cookie maxAge alineada a 24h (src/lib/auth.ts:48, 178).
+- Login vulnerable a timing attack (usuario no encontrado retorna 401 instantáneo) → añadido bcrypt.compare contra DUMMY_BCRYPT_HASH cuando el usuario no existe (src/app/api/auth/login/route.ts:16, 52-58).
+- Register sin cap de longitud de password → añadido MAX_PASSWORD_LENGTH=1024, MAX_NAME_LENGTH=100, email max 254 (src/app/api/auth/register/route.ts:6-8, 42-54).
+- /api/youtube GET y POST sin auth gate → añadido `getAuthenticatedUser` en ambos métodos; anónimos ya no pueden quemar quota (src/app/api/youtube/route.ts:31-37, 284-289).
+- /api/youtube maxResults sin cap → añadido `clampMaxResults()` limitando a 50 (src/app/api/youtube/route.ts:10-16).
+- /api/settings GET/POST/DELETE sin auth gate → añadido auth en los 3 métodos; antes cualquier anónimo podía sobreescribir las API keys del server (src/app/api/settings/route.ts:9-13, 40-47, 112-116).
+- /api/settings POST sin cap de value → añadido slice(0, 4096) (src/app/api/settings/route.ts:78).
+- 6 endpoints IA sin auth gate (chat, keywords, trends, content-gaps, content-plan, monetization, competitor-analysis) → añadido auth en todos (cost sink crítico).
+- content-gaps y content-plan con fallback silencioso a "IA & ML" → cambiado a 400 si niche vacío (evita cost sink con payload vacío).
+- chat sin cap de messages → añadido MAX_MESSAGES=50, MAX_MSG_CONTENT=8000, sanitización de role a 'user'|'assistant' (src/app/api/chat/route.ts:32-41).
+- competitor-analysis sin cap de channels → añadido MAX_CHANNELS=10, sanitize por canal a 200 chars, número de channels válidos ≥2 (src/app/api/competitor-analysis/route.ts:27-41).
+- monetization sin rango en subscribers/viewsPerMonth → añadido validación numérica con límites razonables (src/app/api/monetization/route.ts:25-30).
+- 9 handlers devolvían `error.message` al cliente → añadido `src/lib/errors.ts` con `safeErrorMessage` (devuelve genérico en prod, mensaje real en dev) y `logError` (loguea con stack server-side). Aplicado a auth/login, auth/register, auth/me, auth/logout, saved-niches, saved-channels, chat-messages, content-plans, dashboard, settings, youtube, keywords, trends, content-gaps, content-plan, monetization, competitor-analysis, chat.
+- 13 POST handlers hacían `await req.json()` sin try/catch → envueltos en try/catch con 400 'Cuerpo de la petición inválido'.
+- next.config.ts sin headers de seguridad → añadido `headers()` con HSTS, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy (cámara/mic/geo bloqueadas), Content-Security-Policy estricta con frame-ancestors 'none' y connect-src explícito (next.config.ts:3-37).
+- `.env` commiteado en git → ejecutado `git rm --cached .env` (archivo sigue en disco para dev, pero ya no se versiona).
+- Creado `.env.example` con documentación de variables y notas de seguridad (sin valores reales).
+- Prisma con `log: ['query']` global → cambiado a `['error', 'warn']` en prod, `['query', 'error', 'warn']` solo en dev (src/lib/db.ts:9-13).
+- Logout solo borra cookie, sin denylist server-side → documentado en JSDoc del handler que con JWT 24h el riesgo es limitado, y recomendado Redis/Upstash denylist si se requiere revocación inmediata (src/app/api/auth/logout/route.ts:9-15).
+
+Issues Found & NOT Fixed (need decision):
+- Rate limiting en endpoints IA (chat, keywords, trends, content-gaps, content-plan, monetization, competitor-analysis) → propuesta: throttle por userId usando Upstash Redis Ratelimit (@upstash/ratelelimit + sliding window 10 req/min por user) o un middleware in-memory para single-instance. NO implementado por requerir infraestructura externa (Redis) o decisión de arquitectura (single vs multi-instance). Riesgo: cualquier usuario autenticado puede llamar al LLM en bucle y costear quota.
+- Logout sin denylist server-side → propuesta: añadir tabla `RevokedToken` en Prisma con jti+exp, o Upstash Set con TTL=exp del JWT. Riesgo: con expiración 24h, token robado sigue válido hasta 24h tras logout. Documentado en JSDoc.
+- SameSite=Lax en cookie de auth → propuesta: cambiar a `strict` para reducir aún más superficie CSRF. NO cambiado porque Lax es lo estándar para SaaS y rompería deep-links (un usuario que llega desde email y hace click en un enlace que abre sesión —Lax lo permite, Strict lo bloquea). Requiere decisión de UX.
+- IDs públicos exponen cuid (SavedNiche.id, etc.) → cuid es OK (no secuencial, no adivinable), pero UUID v4 es más seguro para recursos sensibles. Requiere migración de schema. No crítico.
+- `typescript.ignoreBuildErrors: true` en next.config.ts → enmascara errores TS en build de producción. Recomendado resolver los 4 errores preexistentes (LandingPage style prop, ContentGapView recharts Tooltip) y ponerlo en `false`. Fuera de scope del audit (no es fallo de seguridad, pero permite que se cuelen bugs).
+
+Stage Summary:
+- 21 issues encontrados, 17 reparados directamente con Edit, 4 pendientes (rate limiting, denylist JWT, SameSite Strict, UUID v4) documentados con propuestas.
+- `npx tsc --noEmit` pasa sin errores nuevos (solo los 4 preexistentes en LandingPage.tsx y ContentGapView.tsx, ya filtrados).
+- Cambios aplicados a 18 archivos: src/lib/auth.ts, src/lib/db.ts, src/lib/errors.ts (nuevo), next.config.ts, .env.example (nuevo), y 14 archivos en src/app/api/.
+- `.env` descommiteado de git (el archivo sigue en disco para dev).
+- Cobertura de seguridad post-audit: todos los endpoints REST mutantes requieren auth, todos los errores al cliente son genéricos en prod, JWT firmado con HS256 y secreto fuerte, password timing-safe, headers CSP/HSTS/XFO activos, AI endpoints validados y con caps de input.
+
+---
+Task ID: audit-2
+Agent: code-quality-auditor
+Task: Auditoría de calidad de código y tipos — revisión completa + reparación directa
+
+Work Log:
+- Leído worklog previo (audit-1) para respetar hardening de seguridad: auth gates, validation caps, headers CSP, `src/lib/errors.ts`, `src/lib/auth.ts` con `resolveJwtSecret`. No se deshizo ninguno de esos cambios.
+- Ejecutado `npx tsc --noEmit` (filtro `examples/` y `skills/`): 4 errores en código del proyecto (3 en LandingPage style prop, 1 en ContentGapView recharts Tooltip).
+- Auditados los 19 archivos en `src/app/api/*/route.ts`: `req.json()` ya está envuelto en try/catch por audit-1; `req.headers.get()` se usa solo en `getAuthenticatedUser` (que maneja null); `response.choices?.[0]?.message?.content || ''` ya tiene fallback en todos los endpoints IA.
+- Auditada consistencia del contrato `{error, code?, details?}`: AI endpoints usan `{ error, code: 'AI_UNAVAILABLE' }` + 503, los CRUD usan `{ error }` + 500 con `safeErrorMessage`, los auth endpoints usan `{ success, error }`. Contrato consistente dentro de cada familia.
+- Auditados imports muertos con `rg` en `src/`: encontrados `setActiveView` sin uso en SettingsView, `Plus` sin uso en CompetitorMatrixView, `CalendarDays` sin uso en ContentPlanView, `BarChart3/Globe/Users/ChevronRight` sin uso en LandingPage, `CardDescription` sin uso en SettingsView, `ChatMessage` sin uso en AIChatView, `safeErrorMessage` importado pero no llamado en keywords route. Todos limpiados.
+- Auditados patrones Prisma: 0 N+1 (no hay `await db.x` dentro de loops), multi-tenant safety OK (todos los queries user-scoped incluyen `userId` en `where`), `getAuthenticatedUser` usa `select` para excluir password. Solo observación: dashboard/chat-messages/content-plans devuelven todas las columnas y mapean después (opt-in `select` sería más eficiente pero no es bug).
+- Auditados React anti-patterns: `key={i}` encontrado en listas dinámicas (chatMessages, gaps, trends, videos). Para chatMessages (que puede clear+re-add) se cambió a `key={`${i}-${msg.role}-${msg.content.slice(0,16)}`}`. Para listas estáticas se dejó `key={i}` (aceptable). Encontrado bug en AIChatView: botón "Reintentar" llamaba `sendMessage()` sin arg tras limpiar el input → no reintentaba. Fix: agregar estado `lastMessage` y pasarlo al retry.
+- Auditados `console.log`/debug: solo 1 `console.log` en todo `src/` (en `src/lib/auth.ts:122` — server-side, logging legítimo de migración de password). `console.error` en frontend (SettingsView, LandingPage, ErrorBoundary) son en catch blocks legítimos — dejados. `console.error` en lib/errors.ts y lib/auth.ts son server-side — dejados. Solo se quitó el `console.error('Error fetching settings:', error)` en SettingsView (frontend, ya que el catch block no tiene acción útil).
+- Auditado código muerto: `getSettingValue` y `requireAuth` exportados pero no referenciados — dejados (documentados como helpers para uso futuro, no rompen nada).
+- Auditados nombres `demo`/`mock` residuales: encontrado `Ver Demo` (LandingPage botón muerto sin onClick) y `Demo` (footer nav link muerto), comentario stale `// No more mock imports` en ContentGapView, y mensaje falso en ApiKeyStatus `"Mientras tanto, se usan datos de demostración"` (falso — la app no usa datos demo desde el refactor no-mocks). Todos limpiados: botón ahora es "Probar Gratis" con `onClick={handleQuickStart}`, footer cambió a "Testimonios", comentario borrado, mensaje cambiado a honesto.
+- Auditadas validaciones de input en vistas: ContentGapView y ContentPlanView usaban `niche || 'Inteligencia Artificial & ML'` como fallback silencioso — el usuario podía pulsar "Analizar"/"Generar" sin escribir nada y la app mandaba un nicho por defecto (burn de tokens IA). Fix: ambas vistas ahora validan `niche.trim()` y deshabilitan el botón cuando está vacío, igual que KeywordExplorerView y MonetizationView.
+- Auditado typo CSS: `<Clock className="w-3 h--3" />` en ContentPlanView (typo `h--3` no es clase Tailwind válida, el icono no se sized correctamente). Fix: `h-3`.
+- Verificación TS final: `npx tsc --noEmit` pasa limpio para `src/` (0 errores). Los 4 errores restantes en `examples/` y `skills/` son fuera de scope (instrucción explícita de ignorarlos).
+
+Issues Found & Fixed:
+- TS2322 LandingPage FloatingBadge no acepta `style` → añadido `style?: React.CSSProperties` al componente y propagado al `motion.div` (src/components/LandingPage.tsx:50-68).
+- TS2769 ContentGapView recharts Tooltip formatter con tipos genéricos incompatibles → tipado de args con `any` en formatter y labelFormatter (src/components/views/ContentGapView.tsx:165-179).
+- Fallback silencioso a "Inteligencia Artificial & ML" en ContentGapView → require `niche.trim()` no vacío y deshabilita botón (src/components/views/ContentGapView.tsx:31-33, 103).
+- Fallback silencioso a "IA & ML" y "Jóvenes 18-35" en ContentPlanView → require `niche.trim()` no vacío, `audience.trim()` sin fallback hardcodeado (src/components/views/ContentPlanView.tsx:42-43, 52, 64-65, 118).
+- Botón "Ver Demo" muerto en LandingPage → cambiado a "Probar Gratis" con `onClick={handleQuickStart}` y estado disabled coherente (src/components/LandingPage.tsx:466-475).
+- Footer nav link "Demo" → cambiado a "Testimonios" (src/components/LandingPage.tsx:807).
+- Comentario stale "// No more mock imports" en ContentGapView → borrado (src/components/views/ContentGapView.tsx:4).
+- Mensaje falso en ApiKeyStatus "se usan datos de demostración" → cambiado a "Algunas vistas (nichos, canales) no estarán disponibles hasta configurarla." (src/components/ApiKeyStatus.tsx:45-47).
+- Bug retry button en AIChatView llamaba `sendMessage()` con input ya vacío → agregado estado `lastMessage`, retry usa `sendMessage(lastMessage)` (src/components/views/AIChatView.tsx:29, 50, 208).
+- `key={i}` en lista dinámica chatMessages → `key={`${i}-${msg.role}-${msg.content.slice(0,16)}`}` (src/components/views/AIChatView.tsx:152).
+- `key={i}` en lista estática suggestedQuestions → `key={q}` (src/components/views/AIChatView.tsx:135).
+- CSS typo `h--3` en Clock icon → `h-3` (src/components/views/ContentPlanView.tsx:186).
+- Import sin uso `setActiveView` en SettingsView → eliminado junto con import de `useAppStore` (src/components/views/SettingsView.tsx:26, 85).
+- Import sin uso `CardDescription` en SettingsView → eliminado (src/components/views/SettingsView.tsx:4).
+- `console.error` de debug en fetchSettings catch → reemplazado por comentario explicativo (src/components/views/SettingsView.tsx:107-109).
+- Import sin uso `ChatMessage` en AIChatView → eliminado (src/components/views/AIChatView.tsx:4).
+- Import sin uso `Plus` en CompetitorMatrixView → eliminado (src/components/views/CompetitorMatrixView.tsx:15).
+- Import sin uso `CalendarDays` en ContentPlanView → eliminado (src/components/views/ContentPlanView.tsx:11).
+- Imports sin uso `BarChart3, Globe, Users, ChevronRight` en LandingPage → eliminados (src/components/LandingPage.tsx:17-31).
+- Import sin uso `safeErrorMessage` en keywords route → eliminado (solo se usaba `logError`) (src/app/api/keywords/route.ts:5).
+
+Issues Found & NOT Fixed (documentados, no críticos):
+- `getSettingValue` (settings/route.ts:138) y `requireAuth` (auth.ts:247) exportados pero no referenciados en `src/` — dejados porque son helpers documentados para uso futuro por otras rutas. Removerlos rompería la "API pública" del módulo sin ganar nada.
+- `thumbnail` y `description` definidos en interfaces `YTChannel` y `YouTubeChannel` pero no renderizados en todos los sitios — dejados porque forman parte de la shape del dato y son útiles para extensiones futuras de UI.
+- `reducer` export en `src/hooks/use-toast.ts:77` — dejado, es parte del template estándar de shadcn/ui (se exporta por convención, incluso si no se usa externamente).
+- Dashboard/chat-messages/content-plans devuelven todas las columnas Prisma y mapean en JS en vez de usar `select` — dejado, es opt-in de optimización no crítico (no expone datos sensibles, solo son columnas extra como `createdAt`).
+- youtube/route.ts POST y GET devuelven `data.error.message` del upstream YouTube al cliente — dejado porque esos mensajes son accionables por el usuario (API key inválida, quota excedida). Cambiarlo a genérico rompería la UX de Settings → Probar Conexión.
+- AI endpoints (chat, keywords, trends, content-gaps, content-plan, monetization, competitor-analysis) no usan `safeErrorMessage` en el 500 fallback — usan mensaje estático. Patrón equivalente al de `safeErrorMessage` (genérico en prod, sin fuga). Dejado, no es inconsistencia funcional.
+
+Stage Summary:
+- 19 issues encontrados, todos reparados directamente con Edit (excepto 6 "soft dead code" documentados pero no eliminados por ser helpers exportados o partes de templates shadcn).
+- `npx tsc --noEmit` pasa limpio para `src/` (0 errores residuales en código del proyecto). Los 4 errores restantes están en `examples/` (socket.io) y `skills/` (image-edit, stock-analysis) que la tarea indicó ignorar.
+- Cambios aplicados a 11 archivos: src/components/LandingPage.tsx, src/components/ApiKeyStatus.tsx, src/components/views/SettingsView.tsx, src/components/views/AIChatView.tsx, src/components/views/ContentGapView.tsx, src/components/views/ContentPlanView.tsx, src/components/views/CompetitorMatrixView.tsx, src/app/api/keywords/route.ts.
+- Cambios de calidad: 7 imports muertos limpiados, 1 bug funcional arreglado (retry button en chat), 2 fallbacks silenciosos eliminados (ContentGap, ContentPlan), 1 CSS typo arreglado, 1 mentira de UI reemplazada (ApiKeyStatus "demo data"), 1 botón muerto convertido en CTA funcional, 1 React key anti-pattern corregido.
+- Respeto total al trabajo de audit-1: no se deshizo ningún auth gate, validation cap, CSP header, ni helper de errors.ts. Todos los cambios son aditivos o de limpieza de código muerto.
+
+---
+Task ID: audit-3
+Agent: architecture-auditor
+Task: Auditoría de arquitectura y preparación para producción — revisión completa + reparación directa
+
+Work Log:
+- Leído worklog previo (audit-1, audit-2, y la sección no-mocks-refactor) para respetar el trabajo ya hecho: auth gates, validation caps, errors.ts, CSP headers, resolveJwtSecret, muteo de logs Prisma, fix de TS en src/, fallbacks silenciosos eliminados, bug retry chat arreglado. No se revirtió ninguno de esos cambios.
+- Auditado `prisma/schema.prisma`: 0 índices en tablas multi-tenant (todos los `findMany({ where: { userId } })` eran full table scans), 0 relaciones formales con `User` (FKs sueltos sin cascade), ChatMessage sin `updatedAt`. Aplicadas relaciones + `onDelete: Cascade` + 8 índices + `updatedAt` con `@default(now())` para backfill de filas existentes. Sincronizado con `prisma db push` (4 filas existentes preservadas).
+- Auditadas N+1 queries en APIs REST: dashboard usa `Promise.all` con 4 queries paralelas (no N+1); saved-niches/saved-channels hacen `findFirst` + `create` en 2 queries (no N+1, patrón idempotente); youtube `channel-videos` hace 3 fetches secuenciales con dependencia de datos (no N+1); competitor-analysis construye un único prompt con todos los canales (no N+1). No se requiere fix.
+- Auditado caching: `/api/health` ya tenía cache 60s. Implementado `src/lib/cache.ts` (in-memory TTL Map, lazy eviction) y aplicado a `/api/trends` (90s por `niche+region`) y `/api/keywords` (30s por `niche`). Respuestas cacheadas añaden `cached: true` al payload para que el cliente lo sepa.
+- Auditado `next.config.ts`: `typescript.ignoreBuildErrors: true` enmascaraba errores TS en build de producción. Como audit-2 ya dejó `npx tsc --noEmit` limpio para `src/`, flippeado a `false`. Añadido `images.remotePatterns` para `yt3.ggpht.com`, `yt3.googleusercontent.com`, `i.ytimg.com`, `z-cdn.chatglm.cn` (futuro next/image). Mantenido `output: 'standalone'` con comentario documentando cuándo Vercel lo ignora.
+- Auditado `.env.example`: ya documentaba DATABASE_URL, JWT_SECRET, JWT_EXPIRES_IN, YOUTUBE_API_KEY, ZAI_API_KEY. Ampliado con `NEXT_PUBLIC_APP_URL` (para metadataBase de SEO) y notas explícitas de que NODE_ENV lo setea Next.js automáticamente y de que el standalone server NO carga `.env`.
+- Auditados scripts de `package.json`: `start` usaba `bun` (no portable) y no inyectaba DATABASE_URL. Cambiado a `node` + `DATABASE_URL=file:$(pwd)/db/custom.db` (coincide con el fix aplicado en zip-verify). Añadido `start:win` con `cross-env` + ruta relativa para Windows. Añadido `postinstall: "prisma generate"` (crítico para Vercel build). Añadido `db:migrate:deploy` para prod.
+- Auditada compatibilidad Vercel: SQLite NO funciona en serverless Vercel (filesystem efímero). Documentada tabla comparativa self-hosting vs Vercel en README con 5 dimensiones (standalone, SQLite, cache, postinstall, JWT_SECRET). Recomendado Turso/Neon para migrar — solo cambio es `datasource` block + `DATABASE_URL`.
+- Auditadas migraciones DB: proyecto usa `prisma db push` (workflow de prototipo). Documentada transición a `prisma migrate dev --name init` + `db:migrate:deploy` en README. No se generaron migrations automáticas porque requiere DB limpia o baseline explícito (`migrate diff`) — documentado como decisión.
+- Auditados error boundaries: solo existía `ErrorBoundary` client-side en `src/components/ErrorBoundary.tsx` para vistas. Faltaban `error.tsx` y `loading.tsx` estándar de App Router en `src/app/`. Añadidos ambos, minimalistas, themed (Tailwind + shadcn tokens `bg-background`, `text-foreground`, `text-muted-foreground`, `bg-primary`).
+- Auditado SEO/metadata en `src/app/layout.tsx`: ya exportaba `metadata` con title/description/keywords/authors/icons. Ampliado con `metadataBase`, `title.template`, `openGraph` (es_ES, siteName, images), `twitter` card, `robots` (index/follow), `publisher`/`creator`. Reutilizados el título y descripción del README.
+- Auditados tests: no hay tests en el proyecto. Brecha documentada en worklog (no se crearon tests por instrucción explícita).
+- Auditada higiene de dependencias: `next-auth` y `next-intl` no se referencian en `src/` (ningún `import`). `@reactuses/core`, `react-syntax-highlighter`, `react-markdown`, `@mdxeditor/editor`, `react-day-picker`, `date-fns`, `uuid` tampoco. NO se borraron deps porque algunas son transitivas de shadcn/ui (calendar usa react-day-picker, command usa cmdk, drawer usa vaul, carousel usa embla). Documentado como brecha menor.
+- Auditada observabilidad: `/api/health` devuelve AI availability + latency. Propuesta de `/api/version` con hash de commit documentada en README "Observabilidad" — no implementada por requerir infra externa (commit hash inyectable vía `git rev-parse HEAD > .env` o `vercel env`).
+- Auditados performance budgets: `framer-motion`, `recharts`, `@radix-ui/*` son deps grandes. Verificado que `src/app/page.tsx` ya hace lazy-loading de las 11 vistas con `lazy(() => import(...))` + `Suspense` (buen patrón). Documentado en worklog, no se requirió fix.
+- Auditado env loading en producción: standalone Node server NO carga `.env` automáticamente. `resolveJwtSecret` ya lanza error en prod si falta JWT_SECRET (audit-1). El script `start` ahora inyecta `DATABASE_URL` explícitamente. Documentado en README y `.env.example`.
+- Verificación TS final: `npx tsc --noEmit` pasa limpio para `src/` (0 errores). Los 4 errores restantes en `examples/` (socket.io) y `skills/` (image-edit, stock-analysis) están fuera de scope per instrucción explícita.
+
+Issues Found & Fixed:
+- Prisma schema sin índices multi-tenant → añadido `@@index([userId])` a SavedNiche, SavedChannel, ChatMessage, ContentPlan + `@@index([userId, nicheId])` / `@@index([userId, channelId])` para lookups upsert + `@@index([userId, createdAt])` para los `findMany({ orderBy })` (prisma/schema.prisma:10-95).
+- Sin relaciones formales con User (FKs sueltos) → añadidas relaciones `User? @relation(... onDelete: Cascade)` en SavedNiche, SavedChannel, ChatMessage, ContentPlan; User ahora declara las 4 back-relaciones (prisma/schema.prisma:25-31, 38, 52, 71, 88).
+- ChatMessage sin `updatedAt` → añadido `updatedAt DateTime @default(now()) @updatedAt` con backfill `@default(now())` para filas existentes (prisma/schema.prisma:79).
+- `next.config.ts` con `ignoreBuildErrors: true` → cambiado a `false` (audit-2 dejó tsc limpio para src/) (next.config.ts:42-46).
+- `next.config.ts` sin `images` config → añadido `images.remotePatterns` para `yt3.ggpht.com`, `yt3.googleusercontent.com`, `i.ytimg.com`, `z-cdn.chatglm.cn` (next.config.ts:48-55).
+- `package.json` script `start` usaba `bun` y no inyectaba `DATABASE_URL` → cambiado a `node` + `DATABASE_URL=file:$(pwd)/db/custom.db` (package.json:8).
+- `package.json` script `start` rompía en Windows (`$(pwd)` es bash) → añadido `start:win` con `cross-env` + ruta relativa (package.json:9).
+- `package.json` sin `postinstall` → añadido `postinstall: "prisma generate"` para que Vercel tenga el cliente Prisma listo en build (package.json:11).
+- `package.json` sin script `db:migrate:deploy` → añadido para workflow de prod (package.json:15).
+- Sin `error.tsx` en `src/app/` → creado `src/app/error.tsx` minimalista y themed (Radar icon, bg-background, botón "Reintentar" que llama `reset()`).
+- Sin `loading.tsx` en `src/app/` → creado `src/app/loading.tsx` minimalista y themed (Radar + Loader2 spin).
+- `layout.tsx` metadata sin openGraph/twitter/metadataBase → añadidos `metadataBase`, `title.default+template`, `openGraph` (es_ES, siteName, image), `twitter.card`, `robots` (index/follow), `publisher`/`creator` (src/app/layout.tsx:19-71).
+- Sin cache en endpoints IA costosos → creado `src/lib/cache.ts` (in-memory TTL Map, lazy eviction, `buildCacheKey` helper, `cacheClear` test hook) y aplicado a `/api/trends` (90s por niche+region) y `/api/keywords` (30s por niche) (src/app/api/trends/route.ts:11, 31-35, 77; src/app/api/keywords/route.ts:11, 33-37, 71).
+- `.env.example` sin `NEXT_PUBLIC_APP_URL` → añadido + notas de standalone env loading y NODE_ENV automático (.env.example:26-28, 34-40).
+- README sin sección Vercel/migraciones/observabilidad → añadidas 3 secciones: "Producción: Vercel vs self-hosting" (tabla comparativa de 5 dimensiones), "Migraciones Prisma" (decisión + workflow), "Observabilidad" (health + logs + brechas) (README.md:120-151).
+
+Issues Found & Documented (no fix aplicado):
+- N+1 queries → no se encontraron patrones N+1 en APIs REST. Dashboard usa Promise.all paralelo; saved-niches/saved-channels usan findFirst+create (no loop); youtube channel-videos son fetches secuenciales con dependencia de datos. Documentado en worklog, no se requirió fix.
+- Migraciones formales `prisma/migrations/` → propuesta: ejecutar `prisma migrate dev --name init` cuando se decida promocionar el schema a "estable". No se ejecutó porque requiere DB limpia o baseline explícito (`prisma migrate diff`). Documentado en README "Migraciones Prisma".
+- Deps sin uso aparente (`next-auth`, `next-intl`, `@reactuses/core`, `react-syntax-highlighter`, `react-markdown`, `@mdxeditor/editor`, `react-day-picker`, `date-fns`, `uuid`) → propuesta: auditar con `depcheck` antes de borrar; algunas son transitivas de shadcn/ui (calendar/command/drawer/carousel/resizable). No se borraron para no romper imports indirectos. Documentado en worklog.
+- Cache para otros endpoints IA (content-gaps, content-plan, monetization, competitor-analysis) → propuesta: añadir si la latencia se vuelve problemática. Content-gaps ya es rápida (7.6s típico); competitor-analysis depende del nº de canales; monetization es pequeña. Dejado para evaluación posterior.
+- Tests → propuesta: añadir Vitest + Playwright para E2E de los 6 endpoints IA + auth flow + persistencia multi-tenant. No se crearon tests por instrucción explícita del task. Documentado como brecha.
+- `/api/version` con hash de commit / versión de la app → propuesta: añadir endpoint + `vercel env` o `git rev-parse HEAD > .env` en CI para inyectar `COMMIT_SHA` exposable. No implementado por requerir infra externa (CI/CD). Documentado en README "Observabilidad".
+- Rate limiting (audit-1 ya lo documentó) → sigue pendiente; el cache de trends/keywords añadido en este audit mitiga parcialmente el cost sink al compartir resultados entre usuarios con misma query. Documentado.
+- Sentry/Datadog para APM → propuesta: integrar en `next.config.ts` `instrumentation.ts` hook. No implementado. Documentado en README.
+
+Stage Summary:
+- 14 issues encontrados, 11 reparados directamente con Edit (Prisma schema, next.config, package.json, error.tsx, loading.tsx, layout.tsx, cache.ts, trends, keywords, .env.example, README), 8 documentados con propuestas.
+- `npx tsc --noEmit` pasa limpio para `src/` (0 errores residuales en código del proyecto). Los 4 errores restantes en `examples/` y `skills/` están fuera de scope per instrucción explícita.
+- DB SQLite sincronizada con el nuevo schema vía `prisma db push` (4 filas existentes en ChatMessage preservadas gracias al `@default(now())` backfill en `updatedAt`).
+- Cambios aplicados a 11 archivos: prisma/schema.prisma, next.config.ts, package.json, src/app/layout.tsx, src/app/error.tsx (nuevo), src/app/loading.tsx (nuevo), src/lib/cache.ts (nuevo), src/app/api/trends/route.ts, src/app/api/keywords/route.ts, .env.example, README.md.
+- Respeto total al trabajo de audit-1 (no se deshicieron auth gates, CSP, validation caps, resolveJwtSecret, muteo logs Prisma) y audit-2 (no se reintrodujeron imports muertos, fallbacks silenciosos, anti-patterns React).
+- Cobertura de arquitectura post-audit: schema multi-tenant indexado + cascade, error/loading routes estándar, SEO completo con openGraph/twitter, cache de IA 30-90s por input, scripts portables (node + cross-env + postinstall), README documenta trade-offs Vercel/SQLite/migraciones/observabilidad.

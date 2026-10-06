@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getAuthenticatedUser } from '@/lib/auth';
+import { safeErrorMessage, logError } from '@/lib/errors';
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
+
+// Cap maxResults so an anonymous or malicious caller cannot request 10k videos
+// and burn the server's quota in a single hit.
+const MAX_RESULTS_CAP = 50;
+
+function clampMaxResults(raw: string | null): string {
+  const n = Number.parseInt(raw || '', 10);
+  if (!Number.isFinite(n) || n <= 0) return '10';
+  return String(Math.min(n, MAX_RESULTS_CAP));
+}
 
 async function getApiKey(): Promise<string | null> {
   // First check the database (set via Settings UI)
@@ -17,13 +29,20 @@ async function getApiKey(): Promise<string | null> {
 
 // Search for niches/channels/videos
 export async function GET(request: NextRequest) {
+  // ━━ Auth gate — every YouTube API call uses the server key, so anonymous
+  // abuse would burn quota. Require an authenticated session. ━━
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
+
   const apiKey = await getApiKey();
 
   if (!apiKey) {
     return NextResponse.json(
       {
         error: 'YouTube API key not configured',
-        message: 'Please add your YOUTUBE_API_KEY to the .env.local file',
+        message: 'Please add your YOUTUBE_API_KEY in Settings',
         setup: true,
       },
       { status: 503 }
@@ -38,7 +57,7 @@ export async function GET(request: NextRequest) {
       case 'search': {
         const query = searchParams.get('q');
         const type = searchParams.get('type') || 'video';
-        const maxResults = searchParams.get('maxResults') || '10';
+        const maxResults = clampMaxResults(searchParams.get('maxResults'));
         const regionCode = searchParams.get('regionCode') || 'US';
         const relevanceLanguage = searchParams.get('relevanceLanguage') || 'es';
 
@@ -97,13 +116,12 @@ export async function GET(request: NextRequest) {
 
       case 'channel-videos': {
         const channelId = searchParams.get('channelId');
-        const maxResults = searchParams.get('maxResults') || '10';
+        const maxResults = clampMaxResults(searchParams.get('maxResults'));
 
         if (!channelId) {
           return NextResponse.json({ error: 'channelId parameter required' }, { status: 400 });
         }
 
-        // First get the uploads playlist ID
         const channelParams = new URLSearchParams({
           part: 'contentDetails',
           id: channelId,
@@ -123,7 +141,6 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: 'Could not find uploads playlist' }, { status: 404 });
         }
 
-        // Then get the videos from the playlist
         const playlistParams = new URLSearchParams({
           part: 'snippet,contentDetails',
           playlistId: uploadsPlaylistId,
@@ -138,7 +155,6 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: playlistData.error.message }, { status: playlistData.error.code || 500 });
         }
 
-        // Get video statistics
         const videoIds = playlistData.items?.map((item: any) => item.contentDetails?.videoId).filter(Boolean).join(',');
 
         if (videoIds) {
@@ -178,7 +194,7 @@ export async function GET(request: NextRequest) {
       case 'trending': {
         const regionCode = searchParams.get('regionCode') || 'US';
         const categoryId = searchParams.get('categoryId') || '';
-        const maxResults = searchParams.get('maxResults') || '10';
+        const maxResults = clampMaxResults(searchParams.get('maxResults'));
 
         const params = new URLSearchParams({
           part: 'snippet,statistics',
@@ -205,13 +221,12 @@ export async function GET(request: NextRequest) {
       case 'niche-search': {
         // Advanced niche search - searches for channels in a niche
         const query = searchParams.get('q');
-        const maxResults = searchParams.get('maxResults') || '20';
+        const maxResults = clampMaxResults(searchParams.get('maxResults'));
 
         if (!query) {
           return NextResponse.json({ error: 'Query parameter "q" is required' }, { status: 400 });
         }
 
-        // Search for channels
         const searchParams_ = new URLSearchParams({
           part: 'snippet',
           q: query,
@@ -228,7 +243,6 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: searchData.error.message }, { status: searchData.error.code || 500 });
         }
 
-        // Get channel statistics for all found channels
         const channelIds = searchData.items?.map((item: any) => item.snippet?.channelId).filter(Boolean).join(',');
 
         if (!channelIds) {
@@ -258,13 +272,22 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error: any) {
-    console.error('[YouTube API Error]', error);
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    logError('YouTube API', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Internal server error') },
+      { status: 500 }
+    );
   }
 }
 
 // Check API key status
 export async function POST(request: NextRequest) {
+  // ━━ Auth gate — POST tests the server's API key; do not expose to anonymous. ━━
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
+
   const apiKey = await getApiKey();
 
   if (!apiKey) {
@@ -301,7 +324,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       configured: true,
       valid: false,
-      error: error.message,
+      error: safeErrorMessage(error, 'Unknown error'),
     });
   }
 }

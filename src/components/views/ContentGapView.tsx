@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-// No more mock imports — all data comes from Z.ai API
 import { ContentGap } from '@/lib/types';
 import { useAIStatus } from '@/hooks/use-ai-status';
 import { AIModeBanner } from '@/components/shared/AIModeBanner';
@@ -30,6 +29,8 @@ export function ContentGapView() {
   const { status: aiStatus, check: recheckAI } = useAIStatus();
 
   const handleAnalyze = async () => {
+    const safeNiche = niche.trim();
+    if (!safeNiche) return;
     setLoading(true);
     setErrorMsg('');
     setGaps([]);
@@ -39,7 +40,7 @@ export function ContentGapView() {
       const res = await fetch('/api/content-gaps', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ niche: niche || 'Inteligencia Artificial & ML' }),
+        body: JSON.stringify({ niche: safeNiche }),
       });
       const data = await res.json();
 
@@ -99,7 +100,7 @@ export function ContentGapView() {
                 onKeyDown={(e) => e.key === 'Enter' && handleAnalyze()}
               />
             </div>
-            <Button onClick={handleAnalyze} disabled={loading}>
+            <Button onClick={handleAnalyze} disabled={loading || !niche.trim()}>
               {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Puzzle className="w-4 h-4 mr-2" />}
               Analizar Brechas
             </Button>
@@ -164,12 +165,12 @@ export function ContentGapView() {
                     <ZAxis dataKey="z" range={[100, 800]} name="Oportunidad" />
                     <Tooltip
                       contentStyle={{ borderRadius: '8px', fontSize: '11px' }}
-                      formatter={(_: number, name: string) => {
+                      formatter={(_: any, name: any) => {
                         if (name === 'Videos Existentes') return [_, 'Videos'];
                         if (name === 'Volumen') return [_, 'Búsqueda'];
                         return [_, 'Oportunidad'];
                       }}
-                      labelFormatter={(_, payload) => {
+                      labelFormatter={(_: any, payload: any) => {
                         if (payload && payload[0]) {
                           const d = payload[0].payload;
                           return d.name;

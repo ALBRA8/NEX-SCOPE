@@ -1,12 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
 import { extractJson } from '@/lib/extract-json';
+import { getAuthenticatedUser } from '@/lib/auth';
+import { logError } from '@/lib/errors';
 
 export async function POST(req: NextRequest) {
+  // ━━ Auth gate ━━
+  const user = await getAuthenticatedUser(req);
+  if (!user) {
+    return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
+
   try {
-    const { niche, audience } = await req.json();
-    const safeNiche = (niche || '').toString().trim() || 'Inteligencia Artificial & ML';
-    const safeAudience = (audience || '').toString().trim() || 'Jóvenes de 18-35 años';
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Cuerpo de la petición inválido' }, { status: 400 });
+    }
+    const { niche, audience } = body;
+    const safeNiche = (niche || '').toString().trim().slice(0, 200);
+    const safeAudience = (audience || '').toString().trim().slice(0, 300);
+    if (!safeNiche) {
+      return NextResponse.json({ error: 'El nicho es requerido' }, { status: 400 });
+    }
 
     const zai = await ZAI.create();
 
@@ -48,8 +65,7 @@ Genera exactamente 30 ideas de video. Los datos deben ser realistas y variados.`
       { status: 502 }
     );
   } catch (error: any) {
-    console.error('Content plan API error:', error);
-
+    logError('Content plan API', error);
     const isNetworkError =
       error?.cause?.code === 'UND_ERR_CONNECT_TIMEOUT' ||
       error?.cause?.code === 'ECONNREFUSED' ||
@@ -65,7 +81,7 @@ Genera exactamente 30 ideas de video. Los datos deben ser realistas y variados.`
     }
 
     return NextResponse.json(
-      { error: 'Error al generar plan. Intenta de nuevo.', details: error?.message },
+      { error: 'Error al generar plan. Intenta de nuevo.' },
       { status: 500 }
     );
   }

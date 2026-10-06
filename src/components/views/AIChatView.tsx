@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ChatMessage } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { useAIStatus } from '@/hooks/use-ai-status';
 import { AIModeBanner } from '@/components/shared/AIModeBanner';
@@ -26,6 +25,7 @@ export function AIChatView() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [lastMessage, setLastMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,11 +41,12 @@ export function AIChatView() {
   }, [chatMessages]);
 
   const sendMessage = async (text?: string) => {
-    const message = text || input.trim();
+    const message = (text ?? input).trim();
     if (!message || loading) return;
 
     setInput('');
     setErrorMsg('');
+    setLastMessage(message);
     addChatMessage({ role: 'user', content: message });
     setLoading(true);
 
@@ -129,9 +130,9 @@ export function AIChatView() {
                 Puedo ayudarte a encontrar nichos rentables, analizar canales y crear estrategias de contenido.
               </p>
               <div className="flex flex-wrap gap-2 justify-center max-w-lg">
-                {suggestedQuestions.map((q, i) => (
+                {suggestedQuestions.map((q) => (
                   <Button
-                    key={i}
+                    key={q}
                     variant="outline"
                     size="sm"
                     className="text-xs h-auto py-2 px-3"
@@ -148,7 +149,7 @@ export function AIChatView() {
               <AnimatePresence>
                 {chatMessages.map((msg, i) => (
                   <motion.div
-                    key={i}
+                    key={`${i}-${msg.role}-${msg.content.slice(0, 16)}`}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2 }}
@@ -203,7 +204,7 @@ export function AIChatView() {
                       variant="ghost"
                       size="sm"
                       className="ml-2 h-6 text-xs underline"
-                      onClick={() => sendMessage()}
+                      onClick={() => sendMessage(lastMessage)}
                     >
                       Reintentar
                     </Button>

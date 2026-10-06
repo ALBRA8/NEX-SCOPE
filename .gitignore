@@ -52,3 +52,11 @@ prompt
 server.log
 # Skills directory
 /skills/
+# SQLite DB (local dev only — contains test users, not for git)
+db/*.db
+db/*.db-journal
+db/*.db-*
+
+# Sandbox / agent artifacts
+tool-results/
+agent-ctx/

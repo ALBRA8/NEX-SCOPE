@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +23,6 @@ import {
   ExternalLink,
   Shield,
 } from 'lucide-react';
-import { useAppStore } from '@/lib/store';
 import { motion } from 'framer-motion';
 
 interface ApiKeySetting {
@@ -82,7 +81,6 @@ const colorClasses: Record<string, { bg: string; text: string; border: string; i
 };
 
 export function SettingsView() {
-  const { setActiveView } = useAppStore();
   const [settings, setSettings] = useState<ApiKeySetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
@@ -105,8 +103,8 @@ export function SettingsView() {
         });
         setEditValues(initialValues);
       }
-    } catch (error) {
-      console.error('Error fetching settings:', error);
+    } catch {
+      // network error — leave settings empty; UI shows the loading state ended
     } finally {
       setLoading(false);
     }

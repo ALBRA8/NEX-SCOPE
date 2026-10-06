@@ -38,9 +38,13 @@ Abre http://localhost:3000, regístrate y empieza a usar la plataforma.
 
 ```
 DATABASE_URL=file:../db/custom.db
+JWT_SECRET=<openssl rand -hex 32>
+JWT_EXPIRES_IN=24h
+YOUTUBE_API_KEY=<opcional, también configurable desde la UI>
+NODE_ENV=production|development  # fijada automáticamente por Next.js
 ```
 
-> La ruta es relativa a la carpeta `prisma/` (donde vive `schema.prisma`) y apunta a `db/custom.db` en la raíz del proyecto. La clave de la YouTube Data API v3 se configura desde la interfaz (vista Ajustes) y se guarda en la base de datos, no en archivos.
+> La ruta de `DATABASE_URL` es relativa a la carpeta `prisma/` (donde vive `schema.prisma`) y apunta a `db/custom.db` en la raíz del proyecto. La YouTube Data API key se configura desde la UI (vista Ajustes) y se persiste en la base de datos, no en archivos. `NODE_ENV` la establece Next.js automáticamente; no la declares manualmente en `.env`. El template `.env.example` documenta todas las variables usadas en `src/`.
 
 ## Características
 
@@ -50,6 +54,7 @@ DATABASE_URL=file:../db/custom.db
 - **Persistencia multiusuario**: nichos, canales, historial de chat y planes guardados por usuario (optimistic UI).
 - **Exportar a CSV** los planes de contenido.
 - **Parser robusto de respuestas IA** (`extract-json.ts`): tolera fences markdown, texto extra y JSON con errores comunes.
+- **Cache de IA en memoria** (`src/lib/cache.ts`): `/api/trends` (90 s) y `/api/keywords` (30 s) cachean por nicho para que múltiples usuarios compartiendo la misma consulta no paguen latencia ni quota por duplicado.
 
 ## Estructura del proyecto
 
@@ -110,4 +115,37 @@ npm run build
 npm start
 ```
 
-> Nota: el script `start` inyecta automáticamente `DATABASE_URL` apuntando a `db/custom.db` de la raíz del proyecto, porque el servidor standalone de Next.js no carga el archivo `.env`. La base de datos debe existir previamente (`npx prisma db push`).
+> Nota: el script `start` inyecta automáticamente `DATABASE_URL=file:$(pwd)/db/custom.db` y arranca con `node` (no `bun`), porque el servidor standalone de Next.js NO carga el archivo `.env` automáticamente. En Windows usar `npm run start:win` (usa `cross-env` y ruta relativa). La base de datos debe existir previamente (`npx prisma db push`).
+
+### Producción: Vercel vs self-hosting
+
+| Aspecto | Self-hosting (PM2, Docker, `npm start`) | Vercel |
+|---|---|---|
+| `output: 'standalone'` | Necesario para servir `.next/standalone/server.js` sin `node_modules` | Ignorado — Vercel usa su propio pipeline |
+| SQLite | Funciona (filesystem persistente) | **NO funciona** — el filesystem serverless es efímero y de solo lectura en runtime |
+| Cache en memoria (`src/lib/cache.ts`) | Funciona (proceso único) | No efectivo (cada invocation serverless puede arrancar desde cero); usar Upstash Redis |
+| `postinstall: prisma generate` | Innecesario pero inofensivo | Necesario — Vercel instala deps en build, no en runtime |
+| `JWT_SECRET` | Seteado en entorno del proceso | Configurado en el panel de Vercel → Settings → Environment Variables |
+
+**Migración a Postgres para Vercel**: la forma más económica y simple es **Turso** (libSQL hosted, compatible con Prisma) o **Neon** (Postgres serverless). El cambio en código es únicamente el bloque `datasource` de `schema.prisma` + la variable `DATABASE_URL`. No hay queries SQL crudas en el proyecto, así que toda la lógica multi-tenant (incluyendo los índices `@@index([userId])` añadidos en audit-3) funciona sin cambios.
+
+### Migraciones Prisma
+
+El proyecto usa `prisma db push` para sincronizar el schema con la DB (workflow de prototipo). Para producción se recomienda migraciones formales:
+
+```bash
+# Solo primera vez — genera el baseline `prisma/migrations/` a partir del estado actual
+npx prisma migrate dev --name init
+
+# Aplica migraciones pendientes en deploy (CI/CD, Vercel build, servidor)
+npm run db:migrate:deploy
+```
+
+No se generaron migrations automáticas en audit-3 porque el proyecto se ha iterado con `db push` y un `migrate dev` requiere una DB limpia o un baseline explícito (`prisma migrate diff`). Documentar la transición cuando se decida promocionar el schema a "estable".
+
+### Observabilidad
+
+- `/api/health` → estado de disponibilidad de la IA + latencia (cache 60 s).
+- Logs: en dev, Prisma loguea queries (`log: ['query', 'error', 'warn']`); en producción solo `['error', 'warn']` para evitar fugas de datos sensibles en logs.
+- `safeErrorMessage` (audit-1) y `logError` (`src/lib/errors.ts`) centralizan el manejo de errores server-side.
+- Brecha documentada: no hay `/api/version` con hash de commit ni Sentry/Datadog; pendiente de infra externa.

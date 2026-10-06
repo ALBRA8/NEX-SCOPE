@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthenticatedUser } from '@/lib/auth';
+import { safeErrorMessage, logError } from '@/lib/errors';
 
 // GET /api/chat-messages — list current user's chat history (oldest first)
 export async function GET(request: NextRequest) {
@@ -25,8 +26,11 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error: any) {
-    console.error('[chat-messages GET]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('chat-messages GET', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Error al cargar mensajes') },
+      { status: 500 }
+    );
   }
 }
 
@@ -39,10 +43,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Cuerpo de la petición inválido' },
+        { status: 400 }
+      );
+    }
     const { role, content } = body;
 
-    if (!role || !content) {
+    if (!role || !content || typeof content !== 'string') {
       return NextResponse.json(
         { error: 'role y content son requeridos' },
         { status: 400 }
@@ -73,8 +85,11 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('[chat-messages POST]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('chat-messages POST', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Error al guardar mensaje') },
+      { status: 500 }
+    );
   }
 }
 
@@ -92,7 +107,10 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ deleted: true });
   } catch (error: any) {
-    console.error('[chat-messages DELETE]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('chat-messages DELETE', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Error al borrar mensajes') },
+      { status: 500 }
+    );
   }
 }

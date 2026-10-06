@@ -7,34 +7,64 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Schema notes (audit-3)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// - Every multi-tenant table now has a relation back to User with
+//   `onDelete: Cascade`, so deleting a User also wipes their saved niches,
+//   channels, chat history and plans. The foreign key stays nullable so
+//   legacy rows (created before auth was enforced) are preserved.
+// - Added `@@index([userId])` to every multi-tenant table — every list
+//   query is filtered by `userId`, the index turns those queries from a
+//   full table scan into an index lookup.
+// - Added composite `@@index([userId, nicheId])` and `@@index([userId, channelId])`
+//   to back the upsert / findFirst lookups in saved-niches / saved-channels.
+// - Added `updatedAt` to ChatMessage for consistency with the rest of the
+//   models and to surface "last edit" semantics in future UI.
+// - Added `@@index([userId, createdAt])` to ChatMessage and ContentPlan to
+//   back the `findMany({ orderBy: { createdAt } })` queries.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  password      String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  savedNiches   SavedNiche[]
+  savedChannels SavedChannel[]
+  chatMessages  ChatMessage[]
+  contentPlans  ContentPlan[]
 }
 
 model SavedNiche {
-  id          String   @id @default(cuid())
-  nicheId     String
-  nicheName   String
-  category    String
-  nicheScore  Float
-  userId      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  nicheId    String
+  nicheName  String
+  category   String
+  nicheScore Float
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, nicheId])
 }
 
 model SavedChannel {
-  id           String   @id @default(cuid())
-  channelId    String
-  channelName  String
-  subscribers  Int
-  userId       String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  channelId   String
+  channelName String
+  subscribers Int
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, channelId])
 }
 
 model ChatMessage {
@@ -42,17 +72,28 @@ model ChatMessage {
   role      String
   content   String
   userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+  // @default(now()) backfills existing rows when the column is added; @updatedAt
+  // triggers an automatic refresh on subsequent writes.
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([userId])
+  @@index([userId, createdAt])
 }
 
 model ContentPlan {
-  id          String   @id @default(cuid())
-  niche       String
-  audience    String
-  planData    String
-  userId      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  niche     String
+  audience  String
+  planData  String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, createdAt])
 }
 
 model Setting {

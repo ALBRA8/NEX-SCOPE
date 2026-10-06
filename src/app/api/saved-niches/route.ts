@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthenticatedUser } from '@/lib/auth';
+import { safeErrorMessage, logError } from '@/lib/errors';
 
 // GET /api/saved-niches — list current user's saved niches
 export async function GET(request: NextRequest) {
@@ -17,8 +18,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ niches });
   } catch (error: any) {
-    console.error('[saved-niches GET]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('saved-niches GET', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Error al cargar nichos') },
+      { status: 500 }
+    );
   }
 }
 
@@ -31,19 +35,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Cuerpo de la petición inválido' },
+        { status: 400 }
+      );
+    }
     const { nicheId, nicheName, category, nicheScore } = body;
 
-    if (!nicheId || !nicheName) {
+    if (
+      !nicheId || typeof nicheId !== 'string' ||
+      !nicheName || typeof nicheName !== 'string'
+    ) {
       return NextResponse.json(
         { error: 'nicheId y nicheName son requeridos' },
         { status: 400 }
       );
     }
 
-    // Upsert: avoid duplicates per user (unique on userId+nicheId)
+    // Cap input lengths to prevent DB bloat.
+    const safeNicheId = nicheId.slice(0, 200);
+    const safeNicheName = nicheName.slice(0, 300);
+    const safeCategory = (category ? String(category) : 'General').slice(0, 100);
+    const safeNicheScore = typeof nicheScore === 'number' ? nicheScore : 0;
+
     const existing = await db.savedNiche.findFirst({
-      where: { userId: user.id, nicheId },
+      where: { userId: user.id, nicheId: safeNicheId },
     });
 
     if (existing) {
@@ -52,18 +72,21 @@ export async function POST(request: NextRequest) {
 
     const niche = await db.savedNiche.create({
       data: {
-        nicheId,
-        nicheName,
-        category: category || 'General',
-        nicheScore: typeof nicheScore === 'number' ? nicheScore : 0,
+        nicheId: safeNicheId,
+        nicheName: safeNicheName,
+        category: safeCategory,
+        nicheScore: safeNicheScore,
         userId: user.id,
       },
     });
 
     return NextResponse.json({ niche, saved: true });
   } catch (error: any) {
-    console.error('[saved-niches POST]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('saved-niches POST', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Error al guardar nicho') },
+      { status: 500 }
+    );
   }
 }
 
@@ -88,7 +111,10 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ deleted: true });
   } catch (error: any) {
-    console.error('[saved-niches DELETE]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('saved-niches DELETE', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Error al borrar nicho') },
+      { status: 500 }
+    );
   }
 }

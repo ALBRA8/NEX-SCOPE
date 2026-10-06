@@ -43,7 +43,7 @@ export function ApiKeyStatus() {
                 Ir a Configuración
               </Button>
               <p className="text-[10px] text-muted-foreground mt-2">
-                Mientras tanto, se usan datos de demostración.
+                Algunas vistas (nichos, canales) no estarán disponibles hasta configurarla.
               </p>
             </div>
           </div>

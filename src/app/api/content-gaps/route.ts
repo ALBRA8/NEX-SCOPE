@@ -1,11 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
 import { extractJson } from '@/lib/extract-json';
+import { getAuthenticatedUser } from '@/lib/auth';
+import { logError } from '@/lib/errors';
 
 export async function POST(req: NextRequest) {
+  // ━━ Auth gate ━━
+  const user = await getAuthenticatedUser(req);
+  if (!user) {
+    return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
+
   try {
-    const { niche } = await req.json();
-    const safeNiche = (niche || '').toString().trim() || 'Inteligencia Artificial & ML';
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Cuerpo de la petición inválido' }, { status: 400 });
+    }
+    const { niche } = body;
+    // Require niche instead of silently falling back to a default — silent
+    // fallbacks let anonymous callers burn AI quota with empty payloads.
+    const safeNiche = (niche || '').toString().trim().slice(0, 200);
+    if (!safeNiche) {
+      return NextResponse.json({ error: 'El nicho es requerido' }, { status: 400 });
+    }
 
     const zai = await ZAI.create();
 
@@ -45,8 +64,7 @@ Devuelve exactamente 8 brechas de contenido. Los datos deben ser realistas para 
       { status: 502 }
     );
   } catch (error: any) {
-    console.error('Content gaps API error:', error);
-
+    logError('Content gaps API', error);
     const isNetworkError =
       error?.cause?.code === 'UND_ERR_CONNECT_TIMEOUT' ||
       error?.cause?.code === 'ECONNREFUSED' ||
@@ -62,7 +80,7 @@ Devuelve exactamente 8 brechas de contenido. Los datos deben ser realistas para 
     }
 
     return NextResponse.json(
-      { error: 'Error al analizar brechas. Intenta de nuevo.', details: error?.message },
+      { error: 'Error al analizar brechas. Intenta de nuevo.' },
       { status: 500 }
     );
   }

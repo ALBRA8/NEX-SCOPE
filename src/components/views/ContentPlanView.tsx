@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CalendarDays, Loader2, Download, Sparkles, Save, Trash2, Clock, History, AlertCircle } from 'lucide-react';
+import { Loader2, Download, Sparkles, Save, Trash2, Clock, History, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
@@ -39,6 +39,8 @@ export function ContentPlanView() {
   useEffect(() => { loadSavedPlans(); }, [loadSavedPlans]);
 
   const handleGenerate = async () => {
+    const safeNiche = niche.trim();
+    if (!safeNiche) return;
     setLoading(true);
     setErrorMsg('');
     setPlan([]);
@@ -47,7 +49,7 @@ export function ContentPlanView() {
       const res = await fetch('/api/content-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ niche: niche || 'Inteligencia Artificial & ML', audience: audience || 'Jóvenes de 18-35 años' }),
+        body: JSON.stringify({ niche: safeNiche, audience: audience.trim() }),
       });
       const data = await res.json();
       if (!res.ok) { setMode('error'); setErrorMsg(data?.error || 'Error al generar plan.'); return; }
@@ -59,8 +61,9 @@ export function ContentPlanView() {
 
   const handleSave = async () => {
     if (plan.length === 0) { toast({ title: 'Nada que guardar', description: 'Genera un plan primero.', variant: 'destructive' }); return; }
-    const result = await savePlan(niche || 'Inteligencia Artificial & ML', audience || 'Jóvenes de 18-35 años', plan);
-    if (result.success) { toast({ title: 'Plan guardado', description: `Plan para "${niche || 'IA'}" guardado.` }); }
+    const safeNiche = niche.trim() || 'Sin nicho';
+    const result = await savePlan(safeNiche, audience.trim(), plan);
+    if (result.success) { toast({ title: 'Plan guardado', description: `Plan para "${safeNiche}" guardado.` }); }
     else { toast({ title: 'Error al guardar', description: result.error || 'No se pudo guardar.', variant: 'destructive' }); }
   };
 
@@ -112,7 +115,7 @@ export function ContentPlanView() {
           <div className="flex flex-col sm:flex-row gap-3">
             <Input placeholder="Nicho (ej: Finanzas Personales)" value={niche} onChange={(e) => setNiche(e.target.value)} className="flex-1" />
             <Input placeholder="Audiencia (ej: Jóvenes 18-35)" value={audience} onChange={(e) => setAudience(e.target.value)} className="flex-1" />
-            <Button onClick={handleGenerate} disabled={loading}>
+            <Button onClick={handleGenerate} disabled={loading || !niche.trim()}>
               {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
               Generar Plan
             </Button>
@@ -180,7 +183,7 @@ export function ContentPlanView() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{p.niche}</p>
                             <p className="text-xs text-muted-foreground flex items-center gap-2">
-                              <Clock className="w-3 h--3" />{new Date(p.createdAt).toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · {count} videos{p.audience ? ` · ${p.audience}` : ''}
+                              <Clock className="w-3 h-3" />{new Date(p.createdAt).toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · {count} videos{p.audience ? ` · ${p.audience}` : ''}
                             </p>
                           </div>
                           <div className="flex gap-1 shrink-0">

@@ -17,10 +17,43 @@ import { db } from './db';
 // CONSTANTS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-dev-secret-change-in-production';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 const COOKIE_NAME = 'nexscope_token';
 const BCRYPT_ROUNDS = 10;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// JWT SECRET — refuse to run with a weak fallback in production
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function resolveJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  // Allow a dev-only fallback so local `npm run dev` works without configuration
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'JWT_SECRET must be set in production (use `openssl rand -hex 32` to generate one).'
+      );
+    }
+    // Dev-only — clearly marked, not a security risk in non-prod
+    return 'dev-only-insecure-secret-do-not-use-in-production';
+  }
+  // Enforce minimum length in production to prevent weak secrets
+  if (process.env.NODE_ENV === 'production' && secret.length < 32) {
+    throw new Error('JWT_SECRET must be at least 32 characters in production.');
+  }
+  return secret;
+}
+
+// JWT secret is resolved lazily at first use to avoid throwing during
+// `next build`'s page-data collection (which evaluates modules in production mode
+// without runtime env vars). The strict check still fires on real requests.
+function jwtSecret(): string {
+  return resolveJwtSecret();
+}
+// Default 24h (down from 7d) to reduce exposure window if a token is stolen.
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+// JWT algorithm pinned to HS256 to prevent algorithm confusion attacks
+// (e.g. alg=none or HS256↔RS256 confusion).
+const JWT_ALGORITHM = 'HS256';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // TYPES
@@ -106,7 +139,8 @@ export async function migratePasswordToBcrypt(
  * Sign a JWT token for a user.
  */
 export function signToken(payload: { userId: string; email: string }): string {
-  return jwt.sign(payload, JWT_SECRET, {
+  return jwt.sign(payload, jwtSecret(), {
+    algorithm: JWT_ALGORITHM,
     expiresIn: JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],
   });
 }
@@ -117,7 +151,10 @@ export function signToken(payload: { userId: string; email: string }): string {
  */
 export function verifyToken(token: string): JwtPayload | null {
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    // Pin algorithm to HS256 to prevent algorithm confusion attacks.
+    const payload = jwt.verify(token, jwtSecret(), {
+      algorithms: [JWT_ALGORITHM],
+    }) as JwtPayload;
     return payload;
   } catch (error) {
     return null;
@@ -143,7 +180,8 @@ export function setAuthCookie(
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+    // 24h — must match JWT_EXPIRES_IN default to avoid the cookie outliving the token.
+    maxAge: 60 * 60 * 24,
   });
   return response;
 }

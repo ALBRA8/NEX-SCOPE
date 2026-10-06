@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthenticatedUser } from '@/lib/auth';
+import { safeErrorMessage, logError } from '@/lib/errors';
 
 // GET /api/content-plans — list current user's saved plans (newest first)
 export async function GET(request: NextRequest) {
@@ -26,8 +27,11 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error: any) {
-    console.error('[content-plans GET]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('content-plans GET', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Error al cargar planes') },
+      { status: 500 }
+    );
   }
 }
 
@@ -40,23 +44,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Cuerpo de la petición inválido' },
+        { status: 400 }
+      );
+    }
     const { niche, audience, planData } = body;
 
-    if (!niche || !planData) {
+    if (
+      !niche || typeof niche !== 'string' ||
+      !planData
+    ) {
       return NextResponse.json(
         { error: 'niche y planData son requeridos' },
         { status: 400 }
       );
     }
 
-    // Serialize planData to string if not already
-    const serialized = typeof planData === 'string' ? planData : JSON.stringify(planData);
+    // Serialize planData to string if not already, and cap size to prevent
+    // a multi-MB POST from bloating the SQLite DB.
+    const serialized = (typeof planData === 'string' ? planData : JSON.stringify(planData)).slice(0, 200_000);
+    const safeNiche = niche.slice(0, 200);
+    const safeAudience = (audience ? String(audience) : '').slice(0, 300);
 
     const plan = await db.contentPlan.create({
       data: {
-        niche,
-        audience: audience || '',
+        niche: safeNiche,
+        audience: safeAudience,
         planData: serialized,
         userId: user.id,
       },
@@ -73,8 +91,11 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('[content-plans POST]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('content-plans POST', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Error al guardar plan') },
+      { status: 500 }
+    );
   }
 }
 
@@ -106,7 +127,10 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ deleted: true });
   } catch (error: any) {
-    console.error('[content-plans DELETE]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('content-plans DELETE', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Error al borrar plan') },
+      { status: 500 }
+    );
   }
 }

@@ -1,17 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
 import { extractJson } from '@/lib/extract-json';
+import { getAuthenticatedUser } from '@/lib/auth';
+import { logError } from '@/lib/errors';
 
 export async function POST(req: NextRequest) {
+  // ━━ Auth gate ━━
+  const user = await getAuthenticatedUser(req);
+  if (!user) {
+    return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
+
   try {
-    const { channels } = await req.json();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Cuerpo de la petición inválido' }, { status: 400 });
+    }
+    const { channels } = body;
     if (!Array.isArray(channels) || channels.length < 2) {
+      return NextResponse.json({ error: 'Se requieren al menos 2 canales para comparar' }, { status: 400 });
+    }
+    // Cap the number and shape of channels to prevent giant prompts / prompt
+    // injection via huge strings. Each channel string is capped to 200 chars.
+    const MAX_CHANNELS = 10;
+    const safeChannels = channels
+      .slice(0, MAX_CHANNELS)
+      .filter((ch: any) => ch && typeof ch === 'object')
+      .map((ch: any) => ({
+        name: String(ch.name || '').slice(0, 200),
+        subscribers: Number(ch.subscribers) || 0,
+        totalViews: Number(ch.totalViews) || 0,
+        videoCount: Number(ch.videoCount) || 0,
+        engagementRate: Number(ch.engagementRate) || 0,
+      }));
+
+    if (safeChannels.length < 2) {
       return NextResponse.json({ error: 'Se requieren al menos 2 canales para comparar' }, { status: 400 });
     }
 
     const zai = await ZAI.create();
 
-    const channelList = channels.map((ch: any, i: number) =>
+    const channelList = safeChannels.map((ch: any, i: number) =>
       `Canal ${i + 1}: ${ch.name} — ${ch.subscribers} subs, ${ch.totalViews} vistas, ${ch.videoCount} videos, ${ch.engagementRate}% engagement`
     ).join('\n');
 
@@ -55,7 +86,7 @@ export async function POST(req: NextRequest) {
       { status: 502 }
     );
   } catch (error: any) {
-    console.error('Competitor analysis API error:', error);
+    logError('Competitor analysis API', error);
     const isNetworkError =
       error?.cause?.code === 'UND_ERR_CONNECT_TIMEOUT' ||
       error?.cause?.code === 'ECONNREFUSED' ||
@@ -67,6 +98,6 @@ export async function POST(req: NextRequest) {
         { status: 503 }
       );
     }
-    return NextResponse.json({ error: 'Error al analizar competidores.', details: error?.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error al analizar competidores.' }, { status: 500 });
   }
 }

@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getAuthenticatedUser } from '@/lib/auth';
+import { safeErrorMessage, logError } from '@/lib/errors';
 
 // GET /api/settings — retrieve all settings (values masked for sensitive keys)
-export async function GET() {
+// Requires authentication: anyone with a session can see masked keys, but
+// anonymous users must NOT enumerate which keys are configured.
+export async function GET(request: NextRequest) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
+
   try {
     const settings = await db.setting.findMany({
       orderBy: { category: 'asc' },
     });
 
-    // Mask sensitive values for display
     const masked = settings.map((s) => ({
       id: s.id,
       key: s.key,
@@ -20,22 +28,40 @@ export async function GET() {
 
     return NextResponse.json({ settings: masked });
   } catch (error: any) {
-    console.error('[Settings GET Error]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('Settings GET', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Internal server error') },
+      { status: 500 }
+    );
   }
 }
 
 // POST /api/settings — save or update a setting
+// NOTE: This endpoint stores API secrets into the database. Without auth,
+// an anonymous attacker could overwrite the server's keys (e.g. swap the
+// YouTube key for one tied to their own quota, or simply brick the service).
 export async function POST(request: NextRequest) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
+
   try {
-    const body = await request.json();
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Cuerpo de la petición inválido' },
+        { status: 400 }
+      );
+    }
     const { key, value, category } = body;
 
-    if (!key) {
+    if (!key || typeof key !== 'string') {
       return NextResponse.json({ error: 'Key is required' }, { status: 400 });
     }
 
-    // Validate known API key types
     const validKeys = [
       'YOUTUBE_API_KEY',
       'OPENAI_API_KEY',
@@ -48,17 +74,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Invalid key: ${key}` }, { status: 400 });
     }
 
-    // If value is empty, delete the setting
-    if (!value || value.trim() === '') {
+    // Cap value length to prevent a multi-MB POST from bloating the DB.
+    const safeValue = typeof value === 'string' ? value.slice(0, 4096) : '';
+
+    if (!safeValue || safeValue.trim() === '') {
       await db.setting.deleteMany({ where: { key } });
       return NextResponse.json({ success: true, deleted: true });
     }
 
-    // Upsert the setting
     const setting = await db.setting.upsert({
       where: { key },
-      update: { value, category: category || 'api-keys' },
-      create: { key, value, category: category || 'api-keys' },
+      update: { value: safeValue, category: category || 'api-keys' },
+      create: { key, value: safeValue, category: category || 'api-keys' },
     });
 
     return NextResponse.json({
@@ -73,13 +100,21 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('[Settings POST Error]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('Settings POST', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Internal server error') },
+      { status: 500 }
+    );
   }
 }
 
 // DELETE /api/settings — delete a setting by key
 export async function DELETE(request: NextRequest) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const key = searchParams.get('key');
@@ -91,8 +126,11 @@ export async function DELETE(request: NextRequest) {
     await db.setting.deleteMany({ where: { key } });
     return NextResponse.json({ success: true, deleted: true });
   } catch (error: any) {
-    console.error('[Settings DELETE Error]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logError('Settings DELETE', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Internal server error') },
+      { status: 500 }
+    );
   }
 }
 

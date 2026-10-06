@@ -1,14 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
 import { extractJson } from '@/lib/extract-json';
+import { getAuthenticatedUser } from '@/lib/auth';
+import { logError } from '@/lib/errors';
 
 export async function POST(req: NextRequest) {
-  try {
-    const { niche, subscribers, viewsPerMonth } = await req.json();
-    const safeNiche = (niche || '').toString().trim();
-    const safeSubs = Number(subscribers) || 50000;
-    const safeViews = Number(viewsPerMonth) || 200000;
+  // ━━ Auth gate ━━
+  const user = await getAuthenticatedUser(req);
+  if (!user) {
+    return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
 
+  try {
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Cuerpo de la petición inválido' }, { status: 400 });
+    }
+    const { niche, subscribers, viewsPerMonth } = body;
+    const safeNiche = (niche || '').toString().trim().slice(0, 200);
+    const safeSubs = Number.isFinite(Number(subscribers)) ? Number(subscribers) : 50000;
+    const safeViews = Number.isFinite(Number(viewsPerMonth)) ? Number(viewsPerMonth) : 200000;
+    if (safeSubs < 0 || safeSubs > 1_000_000_000) {
+      return NextResponse.json({ error: 'subscribers inválido' }, { status: 400 });
+    }
+    if (safeViews < 0 || safeViews > 10_000_000_000) {
+      return NextResponse.json({ error: 'viewsPerMonth inválido' }, { status: 400 });
+    }
     if (!safeNiche) {
       return NextResponse.json({ error: 'El nicho es requerido' }, { status: 400 });
     }
@@ -55,7 +74,7 @@ Los valores deben ser realistas para YouTube en español. Incluye 10 nichos en r
       { status: 502 }
     );
   } catch (error: any) {
-    console.error('Monetization API error:', error);
+    logError('Monetization API', error);
     const isNetworkError =
       error?.cause?.code === 'UND_ERR_CONNECT_TIMEOUT' ||
       error?.cause?.code === 'ECONNREFUSED' ||
@@ -67,6 +86,6 @@ Los valores deben ser realistas para YouTube en español. Incluye 10 nichos en r
         { status: 503 }
       );
     }
-    return NextResponse.json({ error: 'Error al calcular monetización.', details: error?.message }, { status: 500 });
+    return NextResponse.json({ error: 'Error al calcular monetización.' }, { status: 500 });
   }
 }

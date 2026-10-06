@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthenticatedUser } from '@/lib/auth';
+import { safeErrorMessage, logError } from '@/lib/errors';
 
 export async function GET(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
@@ -9,7 +10,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Aggregate real user data
     const [savedNiches, savedChannels, savedPlans, chatMessages] = await Promise.all([
       db.savedNiche.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } }),
       db.savedChannel.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } }),
@@ -47,7 +47,10 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error('Dashboard API error:', error);
-    return NextResponse.json({ error: 'Error al cargar datos del dashboard' }, { status: 500 });
+    logError('Dashboard API', error);
+    return NextResponse.json(
+      { error: safeErrorMessage(error, 'Error al cargar datos del dashboard') },
+      { status: 500 }
+    );
   }
 }
