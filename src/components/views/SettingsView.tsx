@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import {
   Settings,
+  Sparkles,
   KeyRound,
   Youtube,
   Brain,
@@ -54,8 +55,26 @@ const apiKeyConfigs: ApiKeyConfig[] = [
     docsUrl: 'https://console.cloud.google.com/apis/credentials',
     placeholder: 'AIzaSy...',
   },
+    {
+    key: 'GROQ_API_KEY',
+    label: 'Groq API Key (AGENTE-GENERAL Fast Engine)',
+    description: 'Inferencia ultra-rápida de AGENTE-GENERAL para respuestas instantáneas del asistente.',
+    icon: Sparkles,
+    color: 'amber',
+    docsUrl: 'https://console.groq.com/keys',
+    placeholder: 'gsk_...',
+  },
   {
-    key: 'OPENAI_API_KEY',
+    key: 'NVIDIA_API_KEY',
+    label: 'NVIDIA NIM API (AGENTE-GENERAL Vision/Inference)',
+    description: 'Inferencia en infraestructura NVIDIA para modelos de lenguaje avanzados (GLM-5.3, Llama 3.1).',
+    icon: Shield,
+    color: 'green',
+    docsUrl: 'https://build.nvidia.com',
+    placeholder: 'nvapi-...',
+  },
+  {
+    key: 'OPENAI_API_KEY',,
     label: 'OpenAI API',
     description: 'Para el asistente IA avanzado y generación de contenido con GPT-4. Opcional — la app usa un modelo alternativo por defecto.',
     icon: Brain,
@@ -78,6 +97,8 @@ const colorClasses: Record<string, { bg: string; text: string; border: string; i
   red: { bg: 'bg-red-500/5', text: 'text-red-500', border: 'border-red-500/20', iconBg: 'bg-red-500/10' },
   emerald: { bg: 'bg-emerald-500/5', text: 'text-emerald-500', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10' },
   violet: { bg: 'bg-violet-500/5', text: 'text-violet-500', border: 'border-violet-500/20', iconBg: 'bg-violet-500/10' },
+  amber: { bg: 'bg-amber-500/5', text: 'text-amber-500', border: 'border-amber-500/20', iconBg: 'bg-amber-500/10' },
+  green: { bg: 'bg-emerald-500/5', text: 'text-emerald-500', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10' },
 };
 
 export function SettingsView() {

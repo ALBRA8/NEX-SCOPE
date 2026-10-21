@@ -1,22 +1,19 @@
 /**
  * NexScope Agent — ReAct executor (prompt-based tool calling)
+ * Paridad con ALBRA AGENT SEED V1.0 (AGENTE-GENERAL)
  *
- * The LLM decides when to call a tool by emitting a specially-marked block
- * inside its response:
+ * El LLM decide cuándo llamar a una herramienta emitiendo un bloque especial:
  *
  *   [[TOOL_CALL]]
  *   {"name":"...","args":{...}}
  *   [[END_TOOL_CALL]]
  *
- * The loop parses that block, runs the tool via `executeTool`, feeds the
- * result back into the conversation as a user message, and lets the LLM
- * continue. Up to MAX_ITERATIONS rounds. When the LLM stops emitting tool
- * calls, its final response is yielded as a `message` event.
- *
- * Used by POST /api/agent (SSE stream).
+ * Soporta múltiples proveedores (Groq, NVIDIA NIM, OpenAI, Z.ai) mediante
+ * `callLLM` y hereda la identidad configurable del sistema.
  */
 
-import ZAI from 'z-ai-web-dev-sdk';
+import { callLLM } from './providers';
+import { getAgentIdentity, type AgentIdentity } from './identity';
 import { executeTool, toolsForPrompt, type ToolContext } from './tools';
 import { extractJson } from '@/lib/extract-json';
 import { startTrace, appendToolCall, finishTrace, type TraceContext } from './trace';
@@ -53,28 +50,28 @@ const MAX_TOOL_RESULT = 4000;
 
 const TOOL_CALL_OPEN = '[[TOOL_CALL]]';
 const TOOL_CALL_CLOSE = '[[END_TOOL_CALL]]';
-// Match the block between [[TOOL_CALL]] and [[END_TOOL_CALL]] (non-greedy,
-// dot-all). Capture group 1 is the inner JSON payload.
 const TOOL_CALL_REGEX = /\[\[TOOL_CALL\]\]\s*([\s\S]*?)\s*\[\[END_TOOL_CALL\]\]/;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// SYSTEM PROMPT (built at runtime to embed the tool list)
+// SYSTEM PROMPT
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-function buildSystemPrompt(): string {
+function buildSystemPrompt(identity: AgentIdentity): string {
   return [
-    'Eres NexScope Agent, un asistente conversacional que AYUDA A OPERAR EL SISTEMA. Puedes usar herramientas para leer datos, generar contenido con IA, buscar en YouTube y guardar items en la cuenta del usuario.',
+    `Eres ${identity.name}, ${identity.role}.`,
+    identity.system_instructions || '',
     '',
-    'Herramientas disponibles:',
+    `REGLA CRÍTICA DE IDENTIDAD: No te identifiques como Claude, ChatGPT, GLM, ni ningún otro modelo de lenguaje. Tu nombre es ${identity.name}.`,
+    '',
+    'Herramientas disponibles para operar el sistema:',
     toolsForPrompt(),
     '',
-    'Reglas:',
-    `- Para usar una herramienta, responde EXACTAMENTE con este formato: la secuencia de apertura ${TOOL_CALL_OPEN} seguida de un JSON con \`{"name":"...","args":{...}}\` y la secuencia de cierre ${TOOL_CALL_CLOSE}. No agregues texto antes ni después en esa línea.`,
-    '- Si tienes toda la información que necesitas, responde en texto natural sin usar tool_call.',
-    '- Si una herramienta devuelve un error, intenta recuperarte o explica el problema al usuario.',
-    '- Máximo 10 iteraciones. Si necesitas más, resume y responde.',
+    'Reglas de ejecución:',
+    `- Para usar una herramienta, responde EXACTAMENTE con este formato: la secuencia ${TOOL_CALL_OPEN} seguida de un JSON con \`{"name":"...","args":{...}}\` y ${TOOL_CALL_CLOSE}. No agregues texto antes ni después en esa línea.`,
+    '- Si tienes toda la información que necesitas, responde en texto natural al usuario sin usar tool_call.',
+    '- Si una herramienta devuelve un error, intenta corregir los argumentos o explica el problema al usuario.',
     '- Responde SIEMPRE en español.',
-    '- Sé conciso pero completo. Usa markdown para listas/tablas cuando sea útil.',
+    '- Sé conciso, analítico y profesional. Usa markdown para listas y tablas cuando sea útil.',
   ].join('\n');
 }
 
@@ -82,15 +79,6 @@ function buildSystemPrompt(): string {
 // TOOL CALL PARSER
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/**
- * Extract a tool call from the LLM's response.
- *
- * Looks for a `[[TOOL_CALL]] ... [[END_TOOL_CALL]]` block, parses the inner
- * JSON (with `extractJson` as a fallback for markdown fences / preamble),
- * and returns `{name, args}` only if `name` is a non-empty string and `args`
- * is a plain object. Returns `null` if no valid tool call is present (in
- * which case the response is treated as a final message to the user).
- */
 function parseToolCall(content: string): ToolCall | null {
   if (!content || typeof content !== 'string') return null;
 
@@ -100,7 +88,6 @@ function parseToolCall(content: string): ToolCall | null {
   const raw = (match[1] || '').trim();
   if (!raw) return null;
 
-  // Try strict JSON first; fall back to extractJson for messy output.
   let parsed: unknown = null;
   try {
     parsed = JSON.parse(raw);
@@ -114,7 +101,6 @@ function parseToolCall(content: string): ToolCall | null {
   const args = obj.args;
 
   if (typeof name !== 'string' || !name.trim()) return null;
-  // args must be a plain object (not null, not array, not primitive).
   if (!args || typeof args !== 'object' || Array.isArray(args)) {
     return null;
   }
@@ -126,25 +112,11 @@ function parseToolCall(content: string): ToolCall | null {
 // AGENT LOOP
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/**
- * Run the NexScope agent loop.
- *
- * Yields a stream of `AgentEvent`s that the caller (typically the SSE
- * endpoint) forwards to the client. The loop terminates when either:
- *  - the LLM responds without a tool call (yields `message` + `done`), or
- *  - the loop exhausts MAX_ITERATIONS (yields `error`).
- *
- * Errors from the underlying AI call are caught here so the trace row can
- * be marked as 'error' before re-throwing; the caller's try/catch in
- * route.ts still receives the thrown error for SSE error event handling.
- */
 export async function* runAgent(
   userMessage: string,
   history: { role: 'user' | 'assistant'; content: string }[],
   ctx: ToolContext
 ): AsyncGenerator<AgentEvent> {
-  // Sanitize and cap history: keep only the last MAX_HISTORY entries with
-  // string content, truncating each to MAX_CONTENT chars.
   const safeHistory: ChatMessage[] = (Array.isArray(history) ? history : [])
     .filter((m) => m && typeof m === 'object' && typeof m.content === 'string')
     .slice(-MAX_HISTORY)
@@ -155,25 +127,22 @@ export async function* runAgent(
 
   const safeUserMessage = String(userMessage || '').slice(0, MAX_CONTENT);
 
+  // Cargar identidad dinámica del agente (paridad con AGENTE-GENERAL)
+  const identity = await getAgentIdentity();
+
   const messages: ChatMessage[] = [
-    { role: 'system', content: buildSystemPrompt() },
+    { role: 'system', content: buildSystemPrompt(identity) },
     ...safeHistory,
     { role: 'user', content: safeUserMessage },
   ];
 
-  // Start the execution trace row (best-effort: failures here don't break
-  // the loop, they just leave `traceId='trace:disabled'`).
   const trace: TraceContext = await startTrace(ctx.userId, safeUserMessage);
 
   try {
-    const zai = await ZAI.create();
-
     for (let i = 0; i < MAX_ITERATIONS; i++) {
-      // The AI call itself can throw on network / quota / auth errors.
-      // Catch it here so we can mark the trace 'error' before re-throwing.
-      let response;
+      let content = '';
       try {
-        response = await zai.chat.completions.create({ messages });
+        content = await callLLM(messages);
       } catch (aiError) {
         await finishTrace(
           trace,
@@ -183,61 +152,66 @@ export async function* runAgent(
         );
         throw aiError;
       }
-      const content = response?.choices?.[0]?.message?.content || '';
 
       const toolCall = parseToolCall(content);
 
       if (!toolCall) {
-        // No tool call → this is the LLM's final answer to the user.
+        // Respuesta final del LLM
         await finishTrace(trace, 'completed', { message: content, iterations: i + 1 });
         yield { type: 'message', content };
         yield { type: 'done' };
         return;
       }
 
-      // Announce the call, run the tool, announce the result.
+      // Anunciar llamada a herramienta
       yield { type: 'tool_call', name: toolCall.name, args: toolCall.args };
       const exec = await executeTool(toolCall.name, toolCall.args, ctx);
+
+      // Registrar en la traza
+      await appendToolCall(
+        trace,
+        toolCall.name,
+        toolCall.args,
+        exec.ok ? exec.result : undefined,
+        exec.ok ? undefined : exec.error
+      );
+
+      // Anunciar resultado
       if (exec.ok) {
         yield { type: 'tool_result', name: toolCall.name, ok: true, result: exec.result };
       } else {
         yield { type: 'tool_result', name: toolCall.name, ok: false, error: exec.error };
       }
 
-      // Persist the tool call to the trace row (best-effort).
-      await appendToolCall(trace, {
-        name: toolCall.name,
-        args: toolCall.args,
-        ok: exec.ok,
-        error: exec.ok ? undefined : exec.error,
-      });
-
-      // Feed the assistant's original response and the tool result back into
-      // the conversation so the LLM can decide what to do next.
+      // Inyectar en el historial de conversación
       messages.push({
         role: 'assistant',
-        content: content.slice(0, MAX_CONTENT),
+        content: `${TOOL_CALL_OPEN}\n${JSON.stringify({ name: toolCall.name, args: toolCall.args })}\n${TOOL_CALL_CLOSE}`,
       });
+
+      const serializedResult = exec.ok
+        ? JSON.stringify(exec.result)
+        : JSON.stringify({ error: exec.error });
+
       messages.push({
         role: 'user',
-        content: `Resultado de la herramienta ${toolCall.name}:\n${JSON.stringify(exec).slice(0, MAX_TOOL_RESULT)}\n\nContinúa: usa otra herramienta si lo necesitas, o responde al usuario.`,
+        content: `Tool result for "${toolCall.name}":\n${serializedResult.slice(0, MAX_TOOL_RESULT)}`,
       });
     }
 
-    // Ran out of iterations without a final answer.
-    await finishTrace(trace, 'aborted', undefined, {
-      message: 'max iterations reached',
-      iterations: MAX_ITERATIONS,
-    });
-    yield { type: 'error', message: 'El agente alcanzó el máximo de iteraciones.' };
-  } catch (loopError) {
-    // Safety net: if anything unexpected (not just the AI call) escaped
-    // the per-iteration try/catch above, mark the trace 'error' before
-    // re-throwing so the caller's SSE error event handler still fires.
-    await finishTrace(trace, 'error', undefined, {
-      message: loopError instanceof Error ? loopError.message : String(loopError),
-      phase: 'agent_loop',
-    });
-    throw loopError;
+    // Si agota iteraciones
+    await finishTrace(trace, 'error', undefined, { message: 'Max iterations reached', iteration: MAX_ITERATIONS });
+    yield {
+      type: 'error',
+      message: 'El agente alcanzó el límite de pasos sin completar la tarea. Intenta con una pregunta más específica.',
+      code: 'MAX_ITERATIONS',
+    };
+    yield { type: 'done' };
+  } catch (err: any) {
+    yield {
+      type: 'error',
+      message: err.message || 'Error durante la ejecución del agente.',
+    };
+    yield { type: 'done' };
   }
 }

@@ -578,6 +578,255 @@ IMPORTANTE: Todos los valores numéricos son ESTIMACIONES generadas por ti (mode
       };
     },
   },
+
+  // ─── VIDEO STUDIO & VIDIQ SUITE CAPABILITIES ────────────────────────
+  {
+    name: 'optimize_title_ctr',
+    description: 'Analiza un título de YouTube, calcula su puntuación CTR (0-100), verifica que no supere los 60 caracteres (límite móvil) y genera 5 variantes de alto impacto psicológico.',
+    parameters: {
+      topic_or_title: {
+        type: 'string',
+        description: 'Tema o título borrador a optimizar',
+        required: true,
+      },
+    },
+    executor: async (args) => {
+      const text = String(args.topic_or_title || '').trim();
+      if (!text) throw new Error('topic_or_title es requerido');
+
+      const POWER_WORDS = [
+        'secreto', 'secretos', 'revelado', 'nuevo', 'fácil', 'rápido', 'paso a paso',
+        'definitivo', 'definitiva', 'error', 'errores', 'nunca', 'evita', 'gratis',
+        'urgente', 'brutal', 'increíble', 'verdad', 'mentira', 'millonario', 'dinero',
+        'éxito', 'mejor', 'peor', 'garantizado', 'sin experiencia', '2026', '24 horas', '30 días'
+      ];
+
+      const len = text.length;
+      const lower = text.toLowerCase();
+      const detectedWords = POWER_WORDS.filter(w => lower.includes(w));
+
+      let score = 30;
+      if (len >= 40 && len <= 60) score += 30;
+      else if (len > 25 && len <= 70) score += 20;
+      else if (len > 0) score += 10;
+      score += Math.min(detectedWords.length * 15, 30);
+      if (/\d+/.test(text)) score += 10;
+      score = Math.min(score, 100);
+
+      const variants = [
+        { cat: 'Curiosidad', title: `El Secreto de ${text} que Nadie te Está Contando` },
+        { cat: 'Listas/Números', title: `7 Pasos para Dominar ${text} en 2026 (Sin Experiencia)` },
+        { cat: 'Alerta/Error', title: `El Mayor Error en ${text} que Arruina tus Resultados` },
+        { cat: 'Tutorial', title: `Cómo Hacer ${text} desde Cero (Guía Definitiva y Fácil)` },
+        { cat: 'Reto/Viral', title: `Probé ${text} Durante 30 Días (Resultados Reales)` },
+      ];
+
+      return {
+        originalTitle: text,
+        length: len,
+        isMobileIdeal: len <= 60 && len >= 35,
+        ctrScore: score,
+        powerWordsDetected: detectedWords,
+        suggestedVariants: variants,
+      };
+    },
+  },
+  {
+    name: 'generate_high_retention_script',
+    description: 'Genera un guión estructurado de alta retención para YouTube: gancho inicial 0-5s, introducción con promesa de valor, 3 bloques de desarrollo con notas visuales y llamada a la acción (CTA).',
+    parameters: {
+      topic: {
+        type: 'string',
+        description: 'Tema o título del vídeo',
+        required: true,
+      },
+      audience: {
+        type: 'string',
+        description: 'Público objetivo (ej: Principiantes, Creadores)',
+        required: false,
+      },
+    },
+    executor: async (args) => {
+      const topic = String(args.topic || '').trim();
+      const audience = String(args.audience || 'Principiantes').trim();
+      if (!topic) throw new Error('topic es requerido');
+
+      return {
+        topic,
+        audience,
+        hook_0_to_5s: `¿Sabías que la mayoría comete el mismo error al empezar con ${topic}? En este vídeo vas a descubrir exactamente cómo resolverlo paso a paso.`,
+        intro_5_to_25s: `Hola a todos. Hoy vamos a desglosar todo lo que necesitas saber sobre ${topic}, pensado para ${audience}. Quédate hasta el final porque el último punto cambiará por completo tu forma de enfocarlo.`,
+        body_sections: [
+          {
+            block: 1,
+            title: `El Fundamento Oculto de ${topic}`,
+            points: ['Por qué falla el 90% de la gente', 'El cambio de mentalidad clave'],
+            visualRetentionNote: 'Mostrar captura o gráfico en pantalla antes del segundo 45.',
+          },
+          {
+            block: 2,
+            title: `Estrategia Práctica en 3 Fases`,
+            points: ['Fase 1: Configuración inicial', 'Fase 2: Ejecución', 'Fase 3: Optimización'],
+            visualRetentionNote: 'Usar efectos de zoom y texto grande con palabras clave.',
+          },
+          {
+            block: 3,
+            title: `El Secreto de los Canales Top`,
+            points: ['Consistencia y métricas clave', 'Cómo escalar sin quemarte'],
+            visualRetentionNote: 'Bajar la música de fondo para generar intriga y seriedad.',
+          },
+        ],
+        cta_outro: `Si este vídeo te aportó valor, suscríbete para no perderte el próximo análisis. Déjame en los comentarios tu mayor duda sobre ${topic} y te responderé personalmente.`,
+      };
+    },
+  },
+  {
+    name: 'generate_seo_description',
+    description: 'Genera una descripción profesional de YouTube optimizada para SEO con resumen, capítulos/marcas de tiempo (00:00), enlaces y hashtags.',
+    parameters: {
+      title: {
+        type: 'string',
+        description: 'Título o tema del vídeo',
+        required: true,
+      },
+    },
+    executor: async (args) => {
+      const title = String(args.title || '').trim();
+      if (!title) throw new Error('title es requerido');
+
+      const desc = `En este vídeo analizamos a fondo todo sobre ${title}. Descubre la guía definitiva con estrategias probadas, consejos prácticos y los errores comunes que debes evitar para maximizar tus resultados en YouTube.
+
+📌 CAPÍTULOS DEL VÍDEO (Marcas de tiempo):
+00:00 - Introducción y lo que aprenderás
+01:15 - El mayor error que debes evitar
+03:40 - Estrategia paso a paso explicada
+07:20 - Caso práctico y resultados reales
+10:45 - Conclusión y próximos pasos recomendados
+
+🔗 ENLACES DE INTERÉS:
+👉 Suscríbete al canal para más contenido semanal: https://youtube.com
+👉 Recursos y plantillas gratuitas: https://ejemplo.com/recursos
+
+💬 Cuéntame en los comentarios: ¿Cuál ha sido tu experiencia con ${title}?
+
+#YouTubeTips #${title.replace(/\s+/g, '')} #CrecimientoYouTube #MarketingDigital`;
+
+      return {
+        title,
+        formattedDescription: desc,
+        wordCount: desc.split(/\s+/).filter(Boolean).length,
+        hasTimestamps: true,
+      };
+    },
+  },
+  {
+    name: 'generate_studio_tags',
+    description: 'Genera etiquetas optimizadas para YouTube Studio en formato separado por comas, verificando que no supere los 500 caracteres.',
+    parameters: {
+      keyword: {
+        type: 'string',
+        description: 'Palabra clave principal',
+        required: true,
+      },
+    },
+    executor: async (args) => {
+      const keyword = String(args.keyword || '').trim().toLowerCase();
+      if (!keyword) throw new Error('keyword es requerido');
+
+      const base = [
+        keyword,
+        `como hacer ${keyword}`,
+        `tutorial ${keyword}`,
+        `${keyword} 2026`,
+        `${keyword} para principiantes`,
+        `trucos ${keyword}`,
+        `${keyword} paso a paso`,
+        `guia completa ${keyword}`,
+        `errores comunes ${keyword}`,
+        `mejores estrategias ${keyword}`,
+        `${keyword} facil`,
+        `aprender ${keyword}`,
+      ];
+
+      const formatted = base.join(', ');
+      return {
+        keyword,
+        tagsCount: base.length,
+        characterCount: formatted.length,
+        withinLimit: formatted.length <= 500,
+        formattedStudioTags: formatted,
+        individualTags: base,
+      };
+    },
+  },
+  {
+    name: 'audit_video_seo',
+    description: 'Audita un borrador completo de vídeo de YouTube (título, descripción y tags), calcula un Score SEO (0-100) y devuelve un checklist detallado.',
+    parameters: {
+      title: {
+        type: 'string',
+        description: 'Título del vídeo',
+        required: true,
+      },
+      description: {
+        type: 'string',
+        description: 'Descripción del vídeo',
+        required: false,
+      },
+      tags: {
+        type: 'string',
+        description: 'Etiquetas separadas por comas',
+        required: false,
+      },
+    },
+    executor: async (args) => {
+      const title = String(args.title || '').trim();
+      const desc = String(args.description || '').trim();
+      const tags = String(args.tags || '').trim();
+
+      let score = 0;
+      const checks = [];
+
+      if (title.length >= 40 && title.length <= 60) {
+        score += 30;
+        checks.push({ check: 'Longitud del título', status: 'PASS', score: 30, message: `${title.length} caracteres (óptimo para móviles)` });
+      } else {
+        score += 15;
+        checks.push({ check: 'Longitud del título', status: 'WARN', score: 15, message: `${title.length} caracteres (ideal entre 40 y 60)` });
+      }
+
+      const descWords = desc.split(/\s+/).filter(Boolean).length;
+      if (descWords >= 100) {
+        score += 30;
+        checks.push({ check: 'Descripción rica en contexto', status: 'PASS', score: 30, message: `${descWords} palabras` });
+      } else {
+        score += 10;
+        checks.push({ check: 'Descripción', status: 'WARN', score: 10, message: `${descWords} palabras (recomendado > 100 palabras)` });
+      }
+
+      if (/0\d:\d\d|\d:\d\d/.test(desc)) {
+        score += 20;
+        checks.push({ check: 'Marcas de tiempo / Capítulos', status: 'PASS', score: 20, message: 'Detectadas marcas de tiempo' });
+      } else {
+        checks.push({ check: 'Marcas de tiempo', status: 'WARN', score: 0, message: 'No se encontraron marcas de tiempo (00:00)' });
+      }
+
+      const tagsCount = tags.split(',').filter(Boolean).length;
+      if (tagsCount >= 8 && tagsCount <= 25) {
+        score += 20;
+        checks.push({ check: 'Etiquetas', status: 'PASS', score: 20, message: `${tagsCount} etiquetas configuradas` });
+      } else {
+        score += 8;
+        checks.push({ check: 'Etiquetas', status: 'WARN', score: 8, message: `${tagsCount} etiquetas (recomendado entre 8 y 20)` });
+      }
+
+      return {
+        seoScore: Math.min(score, 100),
+        checks,
+        readyToPublish: score >= 75,
+      };
+    },
+  },
 ];
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
