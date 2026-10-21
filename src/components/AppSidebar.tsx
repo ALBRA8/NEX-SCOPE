@@ -28,12 +28,15 @@ import {
   Radar,
   LogOut,
   Settings,
+  Sparkles,
+  Smartphone,
+  FileSearch,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
-const menuItems: { id: ViewType; label: string; icon: React.ElementType }[] = [
+const researchItems: { id: ViewType; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'niche-finder', label: 'Buscador de Nichos', icon: Search },
   { id: 'trends', label: 'Tendencias', icon: TrendingUp },
@@ -41,8 +44,14 @@ const menuItems: { id: ViewType; label: string; icon: React.ElementType }[] = [
   { id: 'content-gap', label: 'Brechas de Contenido', icon: Puzzle },
   { id: 'monetization', label: 'Estimador Monetización', icon: DollarSign },
   { id: 'competitor-matrix', label: 'Matriz de Competencia', icon: Swords },
-  { id: 'content-plan', label: 'Plan de Contenido', icon: CalendarDays },
   { id: 'keyword-explorer', label: 'Explorador Keywords', icon: KeyRound },
+];
+
+const studioItems: { id: ViewType; label: string; icon: React.ElementType }[] = [
+  { id: 'video-studio', label: 'Estudio de Video & CTR', icon: Sparkles },
+  { id: 'feed-simulator', label: 'Simulador de Feed', icon: Smartphone },
+  { id: 'seo-audit', label: 'Auditoría SEO', icon: FileSearch },
+  { id: 'content-plan', label: 'Plan de Contenido', icon: CalendarDays },
   { id: 'ai-chat', label: 'Agente IA', icon: Bot },
 ];
 
@@ -70,19 +79,20 @@ export function AppSidebar() {
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
             <h1 className="font-bold text-lg leading-none">NexScope</h1>
-            <p className="text-[10px] text-muted-foreground">YouTube Niche Finder</p>
+            <p className="text-[10px] text-muted-foreground">YouTube Creator Suite</p>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent>
+        {/* Grupo 1: Investigación & Análisis */}
         <SidebarGroup>
           <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">
-            Herramientas
+            Investigación & Análisis
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {researchItems.map((item) => (
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton
                     onClick={() => setActiveView(item.id)}
@@ -107,6 +117,39 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* Grupo 2: Estudio & Optimización (vidIQ Booster) */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">
+            Estudio & Publicación
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {studioItems.map((item) => (
+                <SidebarMenuItem key={item.id}>
+                  <SidebarMenuButton
+                    onClick={() => setActiveView(item.id)}
+                    className={cn(
+                      'transition-all duration-200',
+                      activeView === item.id && 'bg-primary/10 text-primary font-semibold'
+                    )}
+                    tooltip={item.label}
+                  >
+                    <item.icon className={cn(
+                      'w-4 h-4',
+                      activeView === item.id && 'text-primary'
+                    )} />
+                    <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                    {activeView === item.id && (
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary group-data-[collapsible=icon]:hidden" />
+                    )}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Grupo 3: Sistema */}
         <SidebarGroup>
           <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">
             Sistema

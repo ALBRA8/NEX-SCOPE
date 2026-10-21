@@ -10,7 +10,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Separator } from '@/components/ui/separator';
 import { Radar, Loader2 } from 'lucide-react';
 
-// Dynamic imports for views that use Recharts (SSR issues)
+// Dynamic imports for views
 const DashboardView = lazy(() => import('@/components/views/DashboardView').then(m => ({ default: m.DashboardView })));
 const NicheFinderView = lazy(() => import('@/components/views/NicheFinderView').then(m => ({ default: m.NicheFinderView })));
 const TrendsView = lazy(() => import('@/components/views/TrendsView').then(m => ({ default: m.TrendsView })));
@@ -20,6 +20,9 @@ const MonetizationView = lazy(() => import('@/components/views/MonetizationView'
 const CompetitorMatrixView = lazy(() => import('@/components/views/CompetitorMatrixView').then(m => ({ default: m.CompetitorMatrixView })));
 const ContentPlanView = lazy(() => import('@/components/views/ContentPlanView').then(m => ({ default: m.ContentPlanView })));
 const KeywordExplorerView = lazy(() => import('@/components/views/KeywordExplorerView').then(m => ({ default: m.KeywordExplorerView })));
+const VideoStudioView = lazy(() => import('@/components/views/VideoStudioView').then(m => ({ default: m.VideoStudioView })));
+const FeedSimulatorView = lazy(() => import('@/components/views/FeedSimulatorView').then(m => ({ default: m.FeedSimulatorView })));
+const SEOAuditView = lazy(() => import('@/components/views/SEOAuditView').then(m => ({ default: m.SEOAuditView })));
 const AIChatView = lazy(() => import('@/components/views/AIChatView').then(m => ({ default: m.AIChatView })));
 const SettingsView = lazy(() => import('@/components/views/SettingsView').then(m => ({ default: m.SettingsView })));
 
@@ -33,6 +36,9 @@ const viewLabels: Record<string, string> = {
   'competitor-matrix': 'Matriz de Competencia',
   'content-plan': 'Plan de Contenido',
   'keyword-explorer': 'Explorador de Keywords',
+  'video-studio': 'Estudio de Video & CTR',
+  'feed-simulator': 'Simulador de Feed',
+  'seo-audit': 'Auditoría SEO',
   'ai-chat': 'Agente IA',
   'settings': 'Configuración',
 };
@@ -61,9 +67,12 @@ function ViewRenderer({ activeView }: { activeView: string }) {
         {activeView === 'competitor-matrix' && <CompetitorMatrixView />}
         {activeView === 'content-plan' && <ContentPlanView />}
         {activeView === 'keyword-explorer' && <KeywordExplorerView />}
+        {activeView === 'video-studio' && <VideoStudioView />}
+        {activeView === 'feed-simulator' && <FeedSimulatorView />}
+        {activeView === 'seo-audit' && <SEOAuditView />}
         {activeView === 'ai-chat' && <AIChatView />}
         {activeView === 'settings' && <SettingsView />}
-        {!['dashboard','niche-finder','trends','channel-analyzer','content-gap','monetization','competitor-matrix','content-plan','keyword-explorer','ai-chat','settings'].includes(activeView) && <DashboardView />}
+        {!['dashboard','niche-finder','trends','channel-analyzer','content-gap','monetization','competitor-matrix','content-plan','keyword-explorer','video-studio','feed-simulator','seo-audit','ai-chat','settings'].includes(activeView) && <DashboardView />}
       </Suspense>
     </ErrorBoundary>
   );

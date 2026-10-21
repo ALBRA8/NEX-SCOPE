@@ -8,6 +8,9 @@ export type ViewType =
   | 'competitor-matrix'
   | 'content-plan'
   | 'keyword-explorer'
+  | 'video-studio'
+  | 'feed-simulator'
+  | 'seo-audit'
   | 'ai-chat'
   | 'settings';
 
