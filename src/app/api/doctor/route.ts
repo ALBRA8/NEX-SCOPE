@@ -26,7 +26,7 @@ import ZAI from 'z-ai-web-dev-sdk';
 import { db } from '@/lib/db';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { safeErrorMessage, logError } from '@/lib/errors';
-import { cacheSet, cacheGet, cacheClear, buildCacheKey } from '@/lib/cache';
+import { cacheSet, cacheGet, cacheDelete, buildCacheKey } from '@/lib/cache';
 import { TOOLS, toolsForPrompt } from '@/lib/agent/tools';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -158,18 +158,19 @@ export async function GET(request: NextRequest) {
     })
   );
 
-  // 5) cache — set+get+clear a probe key (no cacheDelete in the module).
+  // 5) cache — set+get+delete a probe key (do NOT call cacheClear — that
+  // would wipe every user's cached trends/keywords responses).
   checks.push(
     await runCheck('cache', async () => {
       const probeKey = buildCacheKey('doctor', 'probe', user.id);
       const probeValue = `probe-${Date.now()}`;
       cacheSet(probeKey, probeValue, 60_000);
       const got = cacheGet<string>(probeKey);
-      cacheClear();
+      cacheDelete(probeKey);
       if (got !== probeValue) {
         return { status: 'fail' as const, message: 'cache round-trip no coincide' };
       }
-      return { status: 'ok' as const, message: 'set+get+clear OK' };
+      return { status: 'ok' as const, message: 'set+get+delete OK' };
     })
   );
 

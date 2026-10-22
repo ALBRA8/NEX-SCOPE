@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
+import { getAuthenticatedUser } from '@/lib/auth';
 
-// Cache the result for 60s to avoid hammering the upstream on every page load
+// Cache the AI probe result for 60s to avoid hammering the upstream.
+// Anonymous callers never read or write the cache (no cross-user leak).
 let cachedAt = 0;
 let cachedStatus: { available: boolean; error?: string; latencyMs?: number } = {
   available: false,
@@ -9,7 +11,18 @@ let cachedStatus: { available: boolean; error?: string; latencyMs?: number } = {
 
 const CACHE_TTL_MS = 60_000;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Public health check returns OK without hitting Z.ai.
+  const user = await getAuthenticatedUser(request);
+  if (!user) {
+    return NextResponse.json({
+      available: true,
+      status: 'ok',
+      auth: 'anonymous',
+      cached: false,
+    });
+  }
+
   const now = Date.now();
   if (now - cachedAt < CACHE_TTL_MS) {
     return NextResponse.json({ ...cachedStatus, cached: true });
@@ -18,22 +31,26 @@ export async function GET() {
   const startedAt = Date.now();
   try {
     const zai = await ZAI.create();
-    // Tiny probe: a one-token message. If this returns, Z.ai is up.
     await zai.chat.completions.create({
       messages: [
         { role: 'system', content: 'Responde "ok".' },
         { role: 'user', content: 'ping' },
       ],
-      // Some upstreams support max_tokens; safe to omit if ignored
     });
     cachedStatus = {
       available: true,
       latencyMs: Date.now() - startedAt,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const msg =
+      err instanceof Error
+        ? err.message
+        : typeof err === 'string'
+          ? err
+          : 'Unknown error';
     cachedStatus = {
       available: false,
-      error: err?.cause?.message || err?.message || 'Unknown error',
+      error: msg,
       latencyMs: Date.now() - startedAt,
     };
   }

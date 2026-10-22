@@ -1,23 +1,58 @@
+# Caddyfile for NEX-SCOPE — production-ready reverse proxy
+# Usage:
+#   caddy run --config Caddyfile
+#
+# To enable HTTPS, replace :81 with your domain (e.g. nexscope.example.com)
+# and Caddy will auto-provision a Let's Encrypt certificate.
+
 :81 {
-	@transform_port_query {
-		query XTransformPort=*
+	# Security headers (defense-in-depth — Next.js already sets most of these)
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 	}
 
-	handle @transform_port_query {
-		reverse_proxy localhost:{query.XTransformPort} {
-			header_up Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Real-IP {remote_host}
+	# Rate limit API endpoints to prevent abuse
+	@ai_routes {
+		path /api/trends /api/keywords /api/chat /api/agent /api/monetization
+	}
+	rate_limit @ai_routes {
+		zone ai_zone {
+			key {remote_host}
+			events 10
+			window 1m
 		}
 	}
 
-	handle {
-		reverse_proxy localhost:3000 {
-			header_up Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Real-IP {remote_host}
+	# Stricter rate limit on auth endpoints to prevent brute force
+	@auth_routes {
+		path /api/auth/login /api/auth/register
+	}
+	rate_limit @auth_routes {
+		zone auth_zone {
+			key {remote_host}
+			events 5
+			window 1m
 		}
+	}
+
+	# Log access
+	log {
+		output file /var/log/caddy/nexscope.log {
+			roll_size 100mb
+			roll_keep 5
+		}
+		format json
+	}
+
+	# Reverse proxy to Next.js standalone server
+	reverse_proxy localhost:3000 {
+		header_up Host {host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Real-IP {remote_host}
 	}
 }

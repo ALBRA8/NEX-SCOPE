@@ -529,32 +529,19 @@ export const useAppStore = create<AppState>((set, get) => ({
           isHydrated: true,
         });
       } else {
-        // If registration fails, fall back to a pure guest mode (no persistence)
-        const guestUser: AuthUser = {
-          id: `guest_${randomId}`,
-          name: 'Invitado',
-          email: guestEmail,
-          createdAt: new Date(),
-        };
-        saveCachedUser(guestUser);
+        // Registration failed — stay unauthenticated. Faking it leaves the
+        // user in a broken dashboard where every API call 401s.
         set({
-          isAuthenticated: true,
-          user: guestUser,
+          isAuthenticated: false,
+          user: null,
           isHydrated: true,
         });
       }
     } catch {
-      const randomId = Math.random().toString(36).substring(2, 12);
-      const guestUser: AuthUser = {
-        id: `guest_${randomId}`,
-        name: 'Invitado',
-        email: `guest_${randomId}@nexscope.app`,
-        createdAt: new Date(),
-      };
-      saveCachedUser(guestUser);
+      // Network error — stay unauthenticated, no fake user.
       set({
-        isAuthenticated: true,
-        user: guestUser,
+        isAuthenticated: false,
+        user: null,
         isHydrated: true,
       });
     }
