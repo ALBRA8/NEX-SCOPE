@@ -113,3 +113,63 @@ export interface MonthlyRevenue {
   affiliate: number;
   memberships: number;
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CONTRATO PUENTE CON YOUTUBE AUTOMATION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+export interface AutomationExportPayload {
+  title: string;
+  hook: string;
+  idea_summary: string;
+  target_rpm: number;
+  reference_url?: string;
+  recommended_mode: 'idea' | 'script' | 'url' | 'audio';
+  target_format: 'short' | 'long';
+  generated_at?: string;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DETECTOR DE VIDEOS OUTLIERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+export type OutlierTier = 'EXTREMO_50X' | 'ALTO_20X' | 'VIRAL_10X' | 'NORMAL';
+
+export interface OutlierVideo {
+  id: string;
+  title: string;
+  thumbnail: string;
+  publishedAt: string;
+  views: number;
+  channelSubscribers: number;
+  outlierMultiplier: number; // views / subscribers
+  outlierTier: OutlierTier;
+  url: string;
+  hookSnippet?: string;
+  structureSnippet?: string;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CATÁLOGO DE MONETIZACIÓN POR RPM
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+export type RPMTierLevel = 'Tier 1' | 'Tier 2' | 'Tier 3';
+
+export interface RPMTierCategory {
+  tier: RPMTierLevel;
+  rpmRange: string;
+  minRpm: number;
+  maxRpm: number;
+  niches: string[];
+  description: string;
+  advertisers: string;
+}
+
+export interface NichePivotSuggestion {
+  originalTopic: string;
+  highRpmAngle: string;
+  hook: string;
+  targetTier: RPMTierLevel;
+  estimatedRpm: number;
+  monetizationReason: string;
+}
