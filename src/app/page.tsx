@@ -76,6 +76,7 @@ function ViewRenderer({ activeView }: { activeView: string }) {
         {activeView === 'product-spy' && <ProductSpyView />}
         {activeView === 'breakout-channels' && <BreakoutChannelsView />}
         {activeView === 'thumbnail-analyzer' && <ThumbnailHeatmapView />}
+        {activeView === 'automations' && <AutomationsView />}
         {activeView === 'ai-chat' && <AIChatView />}
         {activeView === 'settings' && <SettingsView />}
         {!['dashboard','niche-finder','trends','channel-analyzer','content-gap','monetization','competitor-matrix','content-plan','keyword-explorer','video-studio','feed-simulator','seo-audit','ad-spy','ai-chat','settings'].includes(activeView) && <DashboardView />}

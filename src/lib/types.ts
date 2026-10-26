@@ -15,6 +15,7 @@ export type ViewType =
   | 'product-spy'
   | 'breakout-channels'
   | 'thumbnail-analyzer'
+  | 'automations'
   | 'ai-chat'
   | 'settings';
 
