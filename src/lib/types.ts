@@ -14,6 +14,7 @@ export type ViewType =
   | 'ad-spy'
   | 'product-spy'
   | 'breakout-channels'
+  | 'thumbnail-analyzer'
   | 'ai-chat'
   | 'settings';
 

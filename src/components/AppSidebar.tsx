@@ -49,6 +49,7 @@ const researchItems: { id: ViewType; label: string; icon: React.ElementType }[] 
   { id: 'ad-spy', label: 'Espía Anuncios (Creatify)', icon: Radar },
   { id: 'product-spy', label: 'Productos & Audios Ganadores', icon: ShoppingBag },
   { id: 'breakout-channels', label: 'Canales Ocultos (Vanta)', icon: Flame },
+  { id: 'thumbnail-analyzer', label: 'Heatmap Miniaturas (1of10)', icon: Eye },
   { id: 'keyword-explorer', label: 'Explorador Keywords', icon: KeyRound },
 ];
 
