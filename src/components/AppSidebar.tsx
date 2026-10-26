@@ -32,6 +32,7 @@ import {
   Smartphone,
   FileSearch,
   ShoppingBag,
+  Flame,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,7 @@ const researchItems: { id: ViewType; label: string; icon: React.ElementType }[] 
   { id: 'competitor-matrix', label: 'Matriz de Competencia', icon: Swords },
   { id: 'ad-spy', label: 'Espía Anuncios (Creatify)', icon: Radar },
   { id: 'product-spy', label: 'Productos & Audios Ganadores', icon: ShoppingBag },
+  { id: 'breakout-channels', label: 'Canales Ocultos (Vanta)', icon: Flame },
   { id: 'keyword-explorer', label: 'Explorador Keywords', icon: KeyRound },
 ];
 

@@ -13,6 +13,7 @@ export type ViewType =
   | 'seo-audit'
   | 'ad-spy'
   | 'product-spy'
+  | 'breakout-channels'
   | 'ai-chat'
   | 'settings';
 
