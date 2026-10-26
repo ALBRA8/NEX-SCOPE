@@ -26,6 +26,12 @@ const SEOAuditView = lazy(() => import('@/components/views/SEOAuditView').then(m
 const AIChatView = lazy(() => import('@/components/views/AIChatView').then(m => ({ default: m.AIChatView })));
 const SettingsView = lazy(() => import('@/components/views/SettingsView').then(m => ({ default: m.SettingsView })));
 const AdSpyView = lazy(() => import('@/components/views/AdSpyView').then(m => ({ default: m.AdSpyView })));
+const ProductSpyView = lazy(() => import('@/components/views/ProductSpyView').then(m => ({ default: m.ProductSpyView })));
+const BreakoutChannelsView = lazy(() => import('@/components/views/BreakoutChannelsView').then(m => ({ default: m.BreakoutChannelsView })));
+const ThumbnailHeatmapView = lazy(() => import('@/components/views/ThumbnailHeatmapView').then(m => ({ default: m.ThumbnailHeatmapView })));
+const AutomationsView = lazy(() => import('@/components/views/AutomationsView').then(m => ({ default: m.AutomationsView })));
+const SchedulerView = lazy(() => import('@/components/views/SchedulerView').then(m => ({ default: m.SchedulerView })));
+const AffiliateOffersView = lazy(() => import('@/components/views/AffiliateOffersView').then(m => ({ default: m.AffiliateOffersView })));
 
 const viewLabels: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -41,6 +47,12 @@ const viewLabels: Record<string, string> = {
   'feed-simulator': 'Simulador de Feed',
   'seo-audit': 'Auditoría SEO',
   'ad-spy': 'Espía de Anuncios Ganadores (Creatify)',
+  'product-spy': 'Productos & Audios Ganadores',
+  'affiliate-offers': 'Radar de Ofertas de Afiliados (JVZoo / ClickBank)',
+  'breakout-channels': 'Canales Ocultos (Vanta)',
+  'thumbnail-analyzer': 'Heatmap de Miniaturas',
+  'automations': 'Automatizaciones & Webhooks',
+  'scheduler': 'Piloto Automático 24/7',
   'ai-chat': 'Agente IA',
   'settings': 'Configuración',
 };
@@ -74,13 +86,14 @@ function ViewRenderer({ activeView }: { activeView: string }) {
         {activeView === 'seo-audit' && <SEOAuditView />}
         {activeView === 'ad-spy' && <AdSpyView />}
         {activeView === 'product-spy' && <ProductSpyView />}
+        {activeView === 'affiliate-offers' && <AffiliateOffersView />}
         {activeView === 'breakout-channels' && <BreakoutChannelsView />}
         {activeView === 'thumbnail-analyzer' && <ThumbnailHeatmapView />}
         {activeView === 'automations' && <AutomationsView />}
         {activeView === 'scheduler' && <SchedulerView />}
         {activeView === 'ai-chat' && <AIChatView />}
         {activeView === 'settings' && <SettingsView />}
-        {!['dashboard','niche-finder','trends','channel-analyzer','content-gap','monetization','competitor-matrix','content-plan','keyword-explorer','video-studio','feed-simulator','seo-audit','ad-spy','ai-chat','settings'].includes(activeView) && <DashboardView />}
+        {!['dashboard','niche-finder','trends','channel-analyzer','content-gap','monetization','competitor-matrix','content-plan','keyword-explorer','video-studio','feed-simulator','seo-audit','ad-spy','product-spy','breakout-channels','thumbnail-analyzer','automations','scheduler','affiliate-offers','ai-chat','settings'].includes(activeView) && <DashboardView />}
       </Suspense>
     </ErrorBoundary>
   );

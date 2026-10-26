@@ -13,6 +13,7 @@ export type ViewType =
   | 'seo-audit'
   | 'ad-spy'
   | 'product-spy'
+  | 'affiliate-offers'
   | 'breakout-channels'
   | 'thumbnail-analyzer'
   | 'automations'
