@@ -12,6 +12,7 @@ export type ViewType =
   | 'feed-simulator'
   | 'seo-audit'
   | 'ad-spy'
+  | 'product-spy'
   | 'ai-chat'
   | 'settings';
 
