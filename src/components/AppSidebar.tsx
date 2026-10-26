@@ -51,6 +51,7 @@ const researchItems: { id: ViewType; label: string; icon: React.ElementType }[] 
   { id: 'breakout-channels', label: 'Canales Ocultos (Vanta)', icon: Flame },
   { id: 'thumbnail-analyzer', label: 'Heatmap Miniaturas (1of10)', icon: Eye },
   { id: 'automations', label: 'Automatizaciones & Webhooks', icon: Workflow },
+  { id: 'scheduler', label: 'Piloto Automático 24/7', icon: CalendarClock },
   { id: 'keyword-explorer', label: 'Explorador Keywords', icon: KeyRound },
 ];
 

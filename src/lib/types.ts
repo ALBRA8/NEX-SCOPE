@@ -16,6 +16,7 @@ export type ViewType =
   | 'breakout-channels'
   | 'thumbnail-analyzer'
   | 'automations'
+  | 'scheduler'
   | 'ai-chat'
   | 'settings';
 
