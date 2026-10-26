@@ -11,6 +11,7 @@ export type ViewType =
   | 'video-studio'
   | 'feed-simulator'
   | 'seo-audit'
+  | 'ad-spy'
   | 'ai-chat'
   | 'settings';
 

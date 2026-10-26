@@ -25,6 +25,7 @@ const FeedSimulatorView = lazy(() => import('@/components/views/FeedSimulatorVie
 const SEOAuditView = lazy(() => import('@/components/views/SEOAuditView').then(m => ({ default: m.SEOAuditView })));
 const AIChatView = lazy(() => import('@/components/views/AIChatView').then(m => ({ default: m.AIChatView })));
 const SettingsView = lazy(() => import('@/components/views/SettingsView').then(m => ({ default: m.SettingsView })));
+const AdSpyView = lazy(() => import('@/components/views/AdSpyView').then(m => ({ default: m.AdSpyView })));
 
 const viewLabels: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -39,6 +40,7 @@ const viewLabels: Record<string, string> = {
   'video-studio': 'Estudio de Video & CTR',
   'feed-simulator': 'Simulador de Feed',
   'seo-audit': 'Auditoría SEO',
+  'ad-spy': 'Espía de Anuncios Ganadores (Creatify)',
   'ai-chat': 'Agente IA',
   'settings': 'Configuración',
 };
@@ -70,9 +72,10 @@ function ViewRenderer({ activeView }: { activeView: string }) {
         {activeView === 'video-studio' && <VideoStudioView />}
         {activeView === 'feed-simulator' && <FeedSimulatorView />}
         {activeView === 'seo-audit' && <SEOAuditView />}
+        {activeView === 'ad-spy' && <AdSpyView />}
         {activeView === 'ai-chat' && <AIChatView />}
         {activeView === 'settings' && <SettingsView />}
-        {!['dashboard','niche-finder','trends','channel-analyzer','content-gap','monetization','competitor-matrix','content-plan','keyword-explorer','video-studio','feed-simulator','seo-audit','ai-chat','settings'].includes(activeView) && <DashboardView />}
+        {!['dashboard','niche-finder','trends','channel-analyzer','content-gap','monetization','competitor-matrix','content-plan','keyword-explorer','video-studio','feed-simulator','seo-audit','ad-spy','ai-chat','settings'].includes(activeView) && <DashboardView />}
       </Suspense>
     </ErrorBoundary>
   );

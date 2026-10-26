@@ -44,6 +44,7 @@ const researchItems: { id: ViewType; label: string; icon: React.ElementType }[] 
   { id: 'content-gap', label: 'Brechas de Contenido', icon: Puzzle },
   { id: 'monetization', label: 'Estimador Monetización', icon: DollarSign },
   { id: 'competitor-matrix', label: 'Matriz de Competencia', icon: Swords },
+  { id: 'ad-spy', label: 'Espía Anuncios (Creatify)', icon: Radar },
   { id: 'keyword-explorer', label: 'Explorador Keywords', icon: KeyRound },
 ];
 
