@@ -109,6 +109,33 @@ export function SchedulerView() {
     }
   };
 
+  const runAffiliateCycle = async () => {
+    setRunningCycle(true);
+    try {
+      const res = await fetch('/api/scheduler/run-cycle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'affiliate' }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setLastCycleResult(data);
+        toast({
+          title: '🎉 ¡Lote de Afiliados Encolado con Éxito!',
+          description: `Oferta JVZoo: ${data.opportunity.title}`,
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Error al lanzar lote de afiliados',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setRunningCycle(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Banner */}
@@ -151,7 +178,18 @@ export function SchedulerView() {
             className="h-9 gap-1.5 text-xs font-semibold bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white"
           >
             {runningCycle ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-white" />}
-            Ejecutar Ciclo Ahora
+            Ejecutar Ciclo
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={runAffiliateCycle}
+            disabled={runningCycle}
+            className="h-9 gap-1.5 font-bold text-xs bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30"
+          >
+            {runningCycle ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-amber-400" />}
+            Lote JVZoo Overnight
           </Button>
         </div>
       </div>
