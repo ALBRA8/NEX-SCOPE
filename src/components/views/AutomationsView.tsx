@@ -95,6 +95,7 @@ export function AutomationsView() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAutomations();
   }, []);
 
@@ -204,9 +205,8 @@ export function AutomationsView() {
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Banner */}
       <AIModeBanner
-        aiStatus={aiStatus}
-        customTitle="Motor Nativo de Webhooks & Disparadores Autónomos (n8n Cloned)"
-        customDescription="Conecta la inteligencia de NEX-SCOPE con YouTube Automation o webhooks externos (Discord, Telegram, n8n, Make) sin instalar servidores extras."
+        available={aiStatus.available}
+        loading={aiStatus.loading}
       />
 
       {/* Top Header */}

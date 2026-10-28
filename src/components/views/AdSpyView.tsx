@@ -128,7 +128,7 @@ export function AdSpyView() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      <AIModeBanner status={aiStatus} onRetry={recheckAI} />
+      <AIModeBanner available={aiStatus.available} loading={aiStatus.loading} onRetry={recheckAI} />
 
       {/* Hero Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-sky-950/40 via-neutral-900/60 to-emerald-950/30 border border-sky-500/20 backdrop-blur-sm">
@@ -355,7 +355,7 @@ export function AdSpyView() {
                           hook: ad.hook,
                           idea_summary: `Anuncio ganador (${ad.days_active} días activo en ${ad.platform}). Fórmula: ${catInfo.label}. Copy original: ${ad.copy_text.slice(0, 180)}`,
                           reference_url: ad.source_url || '',
-                          recommended_mode: 'product',
+                          recommended_mode: 'idea',
                           target_format: 'short',
                         }}
                         className="flex-1"

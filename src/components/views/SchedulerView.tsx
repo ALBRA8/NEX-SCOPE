@@ -57,6 +57,7 @@ export function SchedulerView() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchConfig();
   }, []);
 
@@ -140,9 +141,8 @@ export function SchedulerView() {
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Banner */}
       <AIModeBanner
-        aiStatus={aiStatus}
-        customTitle="Piloto Automático 24/7 (Overnight Autonomous Factory)"
-        customDescription="Escaner continuo que detecta las oportunidades virales más rentables en NEX-SCOPE y las envía a YouTube Automation para que amanezcas con tus videos listos."
+        available={aiStatus.available}
+        loading={aiStatus.loading}
       />
 
       {/* Header Bar */}

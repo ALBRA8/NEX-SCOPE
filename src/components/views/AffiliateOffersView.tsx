@@ -84,6 +84,7 @@ export function AffiliateOffersView() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchOffers();
   }, [network, niche, sort]);
 
@@ -117,7 +118,7 @@ export function AffiliateOffersView() {
 
   return (
     <div className="space-y-6 p-1 sm:p-2">
-      <AIModeBanner />
+      <AIModeBanner available={false} loading={false} />
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

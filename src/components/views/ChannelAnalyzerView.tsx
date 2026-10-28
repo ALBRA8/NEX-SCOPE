@@ -162,6 +162,7 @@ export function ChannelAnalyzerView() {
 
   useEffect(() => {
     if (selectedChannel) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchChannelOutliers(selectedChannel);
     }
   }, [selectedChannel, fetchChannelOutliers]);

@@ -112,6 +112,7 @@ fi
 
 python3 - <<'PY'
 import json
+import sys
 with open('/tmp/iso_b_niches') as f:
     data = json.load(f)
 niches = data.get('niches', [])

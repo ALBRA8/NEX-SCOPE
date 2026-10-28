@@ -74,7 +74,7 @@ const apiKeyConfigs: ApiKeyConfig[] = [
     placeholder: 'nvapi-...',
   },
   {
-    key: 'OPENAI_API_KEY',,
+    key: 'OPENAI_API_KEY',
     label: 'OpenAI API',
     description: 'Para el asistente IA avanzado y generación de contenido con GPT-4. Opcional — la app usa un modelo alternativo por defecto.',
     icon: Brain,
@@ -132,6 +132,7 @@ export function SettingsView() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSettings();
   }, [fetchSettings]);
 

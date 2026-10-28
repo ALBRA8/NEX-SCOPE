@@ -92,6 +92,7 @@ export function ThumbnailHeatmapView() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     analyzeThumbnail();
   }, [imageUrl, niche]);
 
@@ -115,9 +116,8 @@ export function ThumbnailHeatmapView() {
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Banner */}
       <AIModeBanner
-        aiStatus={aiStatus}
-        customTitle="Simulador de Heatmap & Predictor de CTR (Vanta & 1of10 Cloned)"
-        customDescription="Evalúa la retención visual de tu miniatura en pantallas móviles con mapa de calor de atención ocular (Eye-Tracking) y predicción de CTR antes de publicar."
+        available={aiStatus.available}
+        loading={aiStatus.loading}
       />
 
       {/* Header Bar */}
@@ -412,11 +412,13 @@ export function ThumbnailHeatmapView() {
                         {copiedTitle === t.title ? 'Copiado' : 'Copiar'}
                       </Button>
                       <ExportToAutomationButton
-                        topic={t.title}
-                        category={niche}
-                        variant="default"
-                        size="sm"
+                        buttonVariant="default"
+                        buttonSize="sm"
                         className="h-7 text-[11px] px-2.5 bg-gradient-to-r from-rose-600 to-amber-600 text-white font-semibold"
+                        payload={{
+                          title: t.title,
+                          idea_summary: `Miniatura analizada en nicho ${niche}.`,
+                        }}
                       />
                     </div>
                   </div>

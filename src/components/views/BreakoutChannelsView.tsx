@@ -83,6 +83,7 @@ export function BreakoutChannelsView() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchChannels();
   }, [selectedNiche, selectedMaxAge]);
 
@@ -100,9 +101,8 @@ export function BreakoutChannelsView() {
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Top Banner */}
       <AIModeBanner
-        aiStatus={aiStatus}
-        customTitle="Algoritmo de Detección de Canales Ocultos (Vanta / 1of10 Cloned)"
-        customDescription="Detecta canales con menos de 90 días de antigüedad que están acumulando cientos de miles de visualizaciones con pocos suscriptores."
+        available={aiStatus.available}
+        loading={aiStatus.loading}
       />
 
       {/* Header & Controls */}
@@ -303,11 +303,13 @@ export function BreakoutChannelsView() {
                     </Button>
 
                     <ExportToAutomationButton
-                      topic={ch.top_viral_videos[0]?.title || ch.channel_name}
-                      category={ch.niche}
-                      variant="default"
-                      size="sm"
+                      buttonVariant="default"
+                      buttonSize="sm"
                       className="h-8 text-xs bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white font-semibold"
+                      payload={{
+                        title: ch.top_viral_videos[0]?.title || ch.channel_name,
+                        idea_summary: `Canal oculto detectado en nicho ${ch.niche}. Ángulo: ${ch.why_it_works}`,
+                      }}
                     />
                   </div>
                 </CardContent>

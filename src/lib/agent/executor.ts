@@ -168,13 +168,12 @@ export async function* runAgent(
       const exec = await executeTool(toolCall.name, toolCall.args, ctx);
 
       // Registrar en la traza
-      await appendToolCall(
-        trace,
-        toolCall.name,
-        toolCall.args,
-        exec.ok ? exec.result : undefined,
-        exec.ok ? undefined : exec.error
-      );
+      await appendToolCall(trace, {
+        name: toolCall.name,
+        args: toolCall.args,
+        ok: exec.ok,
+        error: exec.ok ? undefined : exec.error,
+      });
 
       // Anunciar resultado
       if (exec.ok) {

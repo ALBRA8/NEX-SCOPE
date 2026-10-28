@@ -113,6 +113,7 @@ export function ProductSpyView() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProducts(productCategory);
     fetchSounds(soundMood);
   }, []);
@@ -129,7 +130,7 @@ export function ProductSpyView() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      <AIModeBanner status={aiStatus} onRetry={recheckAI} />
+      <AIModeBanner available={aiStatus.available} loading={aiStatus.loading} onRetry={recheckAI} />
 
       {/* Hero Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-neutral-900/60 to-purple-950/30 border border-emerald-500/20 backdrop-blur-sm">
@@ -306,7 +307,7 @@ export function ProductSpyView() {
                             hook: p.viral_hook,
                             idea_summary: `Producto ganador (${p.velocity}, margen ${p.profit_margin}). Audiencia: ${p.audience}. Características: ${p.selling_points.join(', ')}`,
                             reference_url: p.source_url,
-                            recommended_mode: 'product',
+                            recommended_mode: 'idea',
                             target_format: 'short',
                           }}
                           className="flex-1"
