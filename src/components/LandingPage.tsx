@@ -28,7 +28,9 @@ import {
   Sparkles,
   Zap,
   Play,
+  CheckCircle2,
 } from 'lucide-react';
+import { CazadorDownloadButton } from '@/components/shared/CazadorDownloadButton';
 
 function AnimatedSection({ children, className = '', delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
   const ref = useRef(null);
@@ -778,6 +780,82 @@ export function LandingPage() {
                   Comenzar Gratis
                   <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
+              </div>
+            </div>
+          </AnimatedSection>
+        </div>
+      </section>
+
+      {/* CAZADOR Extension Section */}
+      <section className="relative py-16 sm:py-20 border-t border-white/5">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+          <AnimatedSection>
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium mb-4">
+                  <Zap className="w-3 h-3" />
+                  Extensión Chrome
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+                  Cazador: captura ofertas y canales en 1 clic
+                </h2>
+                <p className="text-gray-400 mb-4 text-sm sm:text-base">
+                  Navega JVZoo, Hotmart, Muncheye o YouTube y usa el botón derecho
+                  para enviar datos directo a NEX-SCOPE. La extensión firma cada
+                  envío con HMAC-SHA256 para que tu cuenta sea la única que pueda
+                  ingresar señales.
+                </p>
+                <ul className="space-y-2 text-sm text-gray-300 mb-6">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                    <span>4 menús contextuales en YouTube (analizar, guardar, espiar, enviar a fábrica)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                    <span>Extractores especializados para JVZoo, Hotmart, Muncheye y Dropi (11 países LATAM)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                    <span>AI Suggest Fields + Cost estimator + Export CSV/Excel</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                    <span>Configura URL y secret del mesh desde el sidebar</span>
+                  </li>
+                </ul>
+                <CazadorDownloadButton size="lg" label="Descargar extensión (Chrome)" />
+              </div>
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-emerald-500/20 blur-3xl" />
+                <div className="relative rounded-2xl border border-white/10 bg-gray-900/50 backdrop-blur p-6">
+                  <div className="flex items-center gap-3 mb-4 pb-4 border-b border-white/5">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center">
+                      <Zap className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-white">Cazador v0.2.0</div>
+                      <div className="text-xs text-gray-400">Chrome 109+ · 95 KB</div>
+                    </div>
+                  </div>
+                  <div className="space-y-2 text-xs font-mono text-gray-400">
+                    <div className="flex items-center justify-between p-2 rounded bg-black/30">
+                      <span>🎯 Analizar canal</span>
+                      <span className="text-emerald-400">→ NEX-SCOPE</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded bg-black/30">
+                      <span>📌 Guardar nicho</span>
+                      <span className="text-emerald-400">→ NEX-SCOPE</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded bg-black/30">
+                      <span>🎬 Enviar a Fábrica</span>
+                      <span className="text-emerald-400">→ Scheduler</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded bg-black/30">
+                      <span>👁️ Espiar anuncios</span>
+                      <span className="text-emerald-400">→ AdSpy</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </AnimatedSection>

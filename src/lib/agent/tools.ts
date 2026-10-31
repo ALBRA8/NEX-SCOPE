@@ -785,7 +785,7 @@ IMPORTANTE: Todos los valores numéricos son ESTIMACIONES generadas por ti (mode
       const tags = String(args.tags || '').trim();
 
       let score = 0;
-      const checks = [];
+      const checks: Array<{ check: string; status: string; score: number; message: string }> = [];
 
       if (title.length >= 40 && title.length <= 60) {
         score += 30;

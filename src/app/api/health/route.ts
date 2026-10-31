@@ -12,7 +12,6 @@ let cachedStatus: { available: boolean; error?: string; latencyMs?: number } = {
 const CACHE_TTL_MS = 60_000;
 
 export async function GET(request: NextRequest) {
-  // Public health check returns OK without hitting Z.ai.
   const user = await getAuthenticatedUser(request);
   if (!user) {
     return NextResponse.json({

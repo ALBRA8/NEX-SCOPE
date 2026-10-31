@@ -7,9 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { CazadorDownloadButton } from '@/components/shared/CazadorDownloadButton';
 import {
   Settings,
-  Sparkles,
   KeyRound,
   Youtube,
   Brain,
@@ -55,24 +55,6 @@ const apiKeyConfigs: ApiKeyConfig[] = [
     docsUrl: 'https://console.cloud.google.com/apis/credentials',
     placeholder: 'AIzaSy...',
   },
-    {
-    key: 'GROQ_API_KEY',
-    label: 'Groq API Key (AGENTE-GENERAL Fast Engine)',
-    description: 'Inferencia ultra-rápida de AGENTE-GENERAL para respuestas instantáneas del asistente.',
-    icon: Sparkles,
-    color: 'amber',
-    docsUrl: 'https://console.groq.com/keys',
-    placeholder: 'gsk_...',
-  },
-  {
-    key: 'NVIDIA_API_KEY',
-    label: 'NVIDIA NIM API (AGENTE-GENERAL Vision/Inference)',
-    description: 'Inferencia en infraestructura NVIDIA para modelos de lenguaje avanzados (GLM-5.3, Llama 3.1).',
-    icon: Shield,
-    color: 'green',
-    docsUrl: 'https://build.nvidia.com',
-    placeholder: 'nvapi-...',
-  },
   {
     key: 'OPENAI_API_KEY',
     label: 'OpenAI API',
@@ -97,8 +79,6 @@ const colorClasses: Record<string, { bg: string; text: string; border: string; i
   red: { bg: 'bg-red-500/5', text: 'text-red-500', border: 'border-red-500/20', iconBg: 'bg-red-500/10' },
   emerald: { bg: 'bg-emerald-500/5', text: 'text-emerald-500', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10' },
   violet: { bg: 'bg-violet-500/5', text: 'text-violet-500', border: 'border-violet-500/20', iconBg: 'bg-violet-500/10' },
-  amber: { bg: 'bg-amber-500/5', text: 'text-amber-500', border: 'border-amber-500/20', iconBg: 'bg-amber-500/10' },
-  green: { bg: 'bg-emerald-500/5', text: 'text-emerald-500', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10' },
 };
 
 export function SettingsView() {
@@ -132,7 +112,6 @@ export function SettingsView() {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSettings();
   }, [fetchSettings]);
 
@@ -495,6 +474,26 @@ export function SettingsView() {
                 <p className="font-medium">Data API v3</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Extensión CAZADOR */}
+      <Separator />
+      <div>
+        <h3 className="text-lg font-semibold mb-3">Extensión CAZADOR</h3>
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Instala la extensión de Chrome para capturar ofertas de afiliados en
+              JVZoo/Hotmart/Muncheye y enviarlas directo a NEX-SCOPE. Incluye 4 menús
+              contextuales en YouTube (analizar canal, guardar nicho, enviar a fábrica,
+              espiar anuncios).
+            </p>
+            <CazadorDownloadButton />
+            <p className="text-xs text-muted-foreground">
+              Requiere: Chrome 109+ • Tamaño: ~95 KB • Versión: 0.2.0
+            </p>
           </CardContent>
         </Card>
       </div>

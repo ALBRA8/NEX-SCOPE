@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { resolve } from "node:path";
 
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
@@ -25,6 +26,12 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Turbopack workspace root — needed because /home/z/my-project/bun.lock
+  // (parent dir) confuses Next.js into treating the parent as workspace root.
+  // We tell Turbopack explicitly: this package IS the root.
+  turbopack: {
+    root: resolve(process.cwd(), ".."),
+  },
   typescript: {
     ignoreBuildErrors: false,
   },

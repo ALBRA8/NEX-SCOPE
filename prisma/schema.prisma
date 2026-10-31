@@ -38,6 +38,7 @@ model User {
   contentPlans     ContentPlan[]
   memories         Memory[]
   executionTraces  ExecutionTrace[]
+  externalSignals  ExternalSignal[]
 }
 
 model SavedNiche {
@@ -164,4 +165,32 @@ model ExecutionTrace {
   @@index([userId])
   @@index([userId, status])
   @@index([userId, createdAt])
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ExternalSignal — inbound mesh signals from external agents
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// One row per signal pushed into NEX-SCOPE by an external agent
+// (CAZADOR, CHISMOSO, RADAR-SECOP2, ...). The signal carries a
+// `source`, a `type` (affiliate_offer | channel_analysis | niche_save |
+// ad_spy | product_spy | ...), a JSON `data` blob and an optional JSON
+// `metadata` blob (url, scrapedAt, extractorUsed, ...). Consumers read
+// unconsumed rows for their type and mark them `consumed = true` after
+// processing — see `GET /api/affiliate-offers` for the canonical
+// consume-on-read pattern.
+model ExternalSignal {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source    String   // 'cazador' | 'chismoso' | 'nexscope' | ...
+  type      String   // 'affiliate_offer' | 'channel_analysis' | ...
+  data      String   // JSON string
+  metadata  String?  // JSON string
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, type])
+  @@index([userId, consumed])
+  @@index([source, type, consumed])
 }
