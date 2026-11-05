@@ -19,6 +19,7 @@ export type ViewType =
   | 'automations'
   | 'scheduler'
   | 'ai-chat'
+  | 'cazador-extension'
   | 'settings';
 
 export type CompetitionLevel = 'bajo' | 'medio' | 'alto';

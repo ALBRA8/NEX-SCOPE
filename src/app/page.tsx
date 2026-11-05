@@ -24,6 +24,7 @@ const VideoStudioView = lazy(() => import('@/components/views/VideoStudioView').
 const FeedSimulatorView = lazy(() => import('@/components/views/FeedSimulatorView').then(m => ({ default: m.FeedSimulatorView })));
 const SEOAuditView = lazy(() => import('@/components/views/SEOAuditView').then(m => ({ default: m.SEOAuditView })));
 const AIChatView = lazy(() => import('@/components/views/AIChatView').then(m => ({ default: m.AIChatView })));
+const CazadorExtensionView = lazy(() => import('@/components/views/CazadorExtensionView').then(m => ({ default: m.CazadorExtensionView })));
 const SettingsView = lazy(() => import('@/components/views/SettingsView').then(m => ({ default: m.SettingsView })));
 const AdSpyView = lazy(() => import('@/components/views/AdSpyView').then(m => ({ default: m.AdSpyView })));
 const ProductSpyView = lazy(() => import('@/components/views/ProductSpyView').then(m => ({ default: m.ProductSpyView })));
@@ -54,6 +55,7 @@ const viewLabels: Record<string, string> = {
   'automations': 'Automatizaciones & Webhooks',
   'scheduler': 'Piloto Automático 24/7',
   'ai-chat': 'Agente IA',
+  'cazador-extension': 'Extensión CAZADOR',
   'settings': 'Configuración',
 };
 
@@ -92,8 +94,9 @@ function ViewRenderer({ activeView }: { activeView: string }) {
         {activeView === 'automations' && <AutomationsView />}
         {activeView === 'scheduler' && <SchedulerView />}
         {activeView === 'ai-chat' && <AIChatView />}
+        {activeView === 'cazador-extension' && <CazadorExtensionView />}
         {activeView === 'settings' && <SettingsView />}
-        {!['dashboard','niche-finder','trends','channel-analyzer','content-gap','monetization','competitor-matrix','content-plan','keyword-explorer','video-studio','feed-simulator','seo-audit','ad-spy','product-spy','breakout-channels','thumbnail-analyzer','automations','scheduler','affiliate-offers','ai-chat','settings'].includes(activeView) && <DashboardView />}
+        {!['dashboard','niche-finder','trends','channel-analyzer','content-gap','monetization','competitor-matrix','content-plan','keyword-explorer','video-studio','feed-simulator','seo-audit','ad-spy','product-spy','breakout-channels','thumbnail-analyzer','automations','scheduler','affiliate-offers','ai-chat','cazador-extension','settings'].includes(activeView) && <DashboardView />}
       </Suspense>
     </ErrorBoundary>
   );

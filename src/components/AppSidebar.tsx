@@ -37,6 +37,7 @@ import {
   Eye,
   Workflow,
   CalendarClock,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -66,6 +67,7 @@ const studioItems: { id: ViewType; label: string; icon: React.ElementType }[] = 
   { id: 'seo-audit', label: 'Auditoría SEO', icon: FileSearch },
   { id: 'content-plan', label: 'Plan de Contenido', icon: CalendarDays },
   { id: 'ai-chat', label: 'Agente IA', icon: Bot },
+  { id: 'cazador-extension', label: 'Extensión CAZADOR', icon: Zap },
 ];
 
 export function AppSidebar() {
