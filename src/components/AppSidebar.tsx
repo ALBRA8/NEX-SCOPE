@@ -43,8 +43,9 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
-const researchItems: { id: ViewType; label: string; icon: React.ElementType }[] = [
+const researchItems: { id: ViewType; label: string; icon: React.ElementType; badge?: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'cazador-extension', label: 'Extensión CAZADOR', icon: Zap, badge: 'NUEVO' },
   { id: 'niche-finder', label: 'Buscador de Nichos', icon: Search },
   { id: 'trends', label: 'Tendencias', icon: TrendingUp },
   { id: 'channel-analyzer', label: 'Análisis de Canal', icon: Tv },
@@ -61,13 +62,12 @@ const researchItems: { id: ViewType; label: string; icon: React.ElementType }[] 
   { id: 'keyword-explorer', label: 'Explorador Keywords', icon: KeyRound },
 ];
 
-const studioItems: { id: ViewType; label: string; icon: React.ElementType }[] = [
+const studioItems: { id: ViewType; label: string; icon: React.ElementType; badge?: string }[] = [
   { id: 'video-studio', label: 'Estudio de Video & CTR', icon: Sparkles },
   { id: 'feed-simulator', label: 'Simulador de Feed', icon: Smartphone },
   { id: 'seo-audit', label: 'Auditoría SEO', icon: FileSearch },
   { id: 'content-plan', label: 'Plan de Contenido', icon: CalendarDays },
   { id: 'ai-chat', label: 'Agente IA', icon: Bot },
-  { id: 'cazador-extension', label: 'Extensión CAZADOR', icon: Zap },
 ];
 
 export function AppSidebar() {
@@ -122,7 +122,12 @@ export function AppSidebar() {
                       activeView === item.id && 'text-primary'
                     )} />
                     <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                    {activeView === item.id && (
+                    {item.badge && (
+                      <span className="ml-auto group-data-[collapsible=icon]:hidden text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500 text-white">
+                        {item.badge}
+                      </span>
+                    )}
+                    {activeView === item.id && !item.badge && (
                       <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary group-data-[collapsible=icon]:hidden" />
                     )}
                   </SidebarMenuButton>
@@ -224,13 +229,17 @@ export function AppSidebar() {
           </Button>
         </div>
 
-        {/* Collapsed icon mode - just show avatar */}
+        {/* Collapsed icon mode - logout icon only (no avatar) */}
         <div className="hidden group-data-[collapsible=icon]:flex flex-col items-center gap-2">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-emerald-500/20 text-emerald-600 text-xs font-semibold">
-              {userInitials}
-            </AvatarFallback>
-          </Avatar>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => { logout(); }}
+            title="Cerrar Sesión"
+          >
+            <LogOut className="w-4 h-4" />
+          </Button>
         </div>
 
         <div className="group-data-[collapsible=icon]:hidden mt-2">
