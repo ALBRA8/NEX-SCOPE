@@ -5,44 +5,32 @@
 '  - Si es la primera vez: abre el instalador visible una sola vez.
 ' ============================================================
 Option Explicit
-Dim fso, sh, carpeta, py, nodeModules
+Dim fso, sh, carpeta, raiz, nodeModules, nextBin
 
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set sh = CreateObject("WScript.Shell")
 
-Dim raiz
-raiz = fso.GetParentFolderName(fso.GetParentFolderName(WScript.ScriptFullName))
+' Determinar si estamos en raiz o en launchers\
+If fso.FileExists(WScript.ScriptFullName) Then
+    Dim scriptDir
+    scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
+    If LCase(fso.GetFileName(scriptDir)) = "launchers" Then
+        raiz = fso.GetParentFolderName(scriptDir)
+    Else
+        raiz = scriptDir
+    End If
+End If
+
 carpeta = raiz
 sh.CurrentDirectory = carpeta
 
 nodeModules = carpeta & "\node_modules"
+nextBin = nodeModules & "\next\dist\bin\next"
 
-' Verificamos si hay Python en el sistema o en el venv del ecosistema
-Dim pyCandidates(3)
-pyCandidates(0) = "python.exe"
-pyCandidates(1) = "D:\PROYECTOS\YOUTUBE AUTOMATION\.venv\Scripts\python.exe"
-pyCandidates(2) = "D:\PROYECTOS\YOUTUBE AUTOMATION\backend\.venv\Scripts\python.exe"
-pyCandidates(3) = "C:\Users\Johan\AppData\Local\Programs\Python\Python311\python.exe"
-
-Dim foundPy, i
-foundPy = ""
-For i = 0 To UBound(pyCandidates)
-    If InStr(pyCandidates(i), "\") > 0 Then
-        If fso.FileExists(pyCandidates(i)) Then
-            foundPy = pyCandidates(i)
-            Exit For
-        End If
-    Else
-        ' Si es comando simple en PATH
-        foundPy = pyCandidates(i)
-        Exit For
-    End If
-Next
-
-If fso.FolderExists(nodeModules) And foundPy <> "" Then
-    ' Ruta silenciosa: ventana oculta (0), sin esperar (False)
-    sh.Run """" & foundPy & """ """ & carpeta & "\launchers\lanzador_nexscope.py""", 0, False
+If fso.FolderExists(nodeModules) And fso.FileExists(nextBin) Then
+    ' Dependencias listas: lanzar silenciosamente en ventana oculta (0)
+    sh.Run "cmd /c """ & carpeta & "\launchers\run_hidden.bat""", 0, False
 Else
-    ' Primera vez o faltan módulos: asistente visible
+    ' Primera vez o faltan modulos: abrir asistente visible (1)
     sh.Run "cmd /c """ & carpeta & "\launchers\start.bat""", 1, False
 End If

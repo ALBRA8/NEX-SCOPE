@@ -3,7 +3,7 @@ chcp 65001 >nul
 title NEX-SCOPE - Asistente de Inicio y Auto-Reparación
 
 echo ============================================================
-echo   🔍 NEX-SCOPE - RADAR ESTRATÉGICO Y DE MONETIZACIÓN
+echo   🔍 NEX-SCOPE - RADAR ESTRATEGICO Y DE MONETIZACION
 echo ============================================================
 echo.
 
@@ -12,8 +12,8 @@ cd /d "%~dp0\.."
 :: 1. Comprobar Node.js
 where node >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [ERROR] Node.js no está instalado o no se encuentra en el PATH.
-    echo Descárgalo e instálalo desde: https://nodejs.org/
+    echo [ERROR] Node.js no esta instalado o no se encuentra en el PATH.
+    echo Descargalo e instalalo desde: https://nodejs.org/
     pause
     exit /b 1
 )
@@ -29,10 +29,10 @@ if not exist ".env.local" (
 :: 3. Instalar node_modules si no existen
 if not exist "node_modules" (
     echo [INFO] Instalando dependencias del proyecto (npm install)...
-    echo Esto puede tardar 1 o 2 minutos en la primera ejecución...
+    echo Esto puede tardar 1 o 2 minutos en la primera ejecucion...
     call npm install
     if %errorlevel% neq 0 (
-        echo [ERROR] Falló la instalación de dependencias con npm install.
+        echo [ERROR] Fallo la instalacion de dependencias con npm install.
         pause
         exit /b 1
     )
@@ -52,5 +52,6 @@ echo [INFO] Presiona Ctrl+C en esta ventana para detener el servidor.
 echo ============================================================
 echo.
 
+timeout /t 2 /nobreak >nul
 start "" "http://localhost:3000"
 call npm run dev
