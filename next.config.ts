@@ -26,6 +26,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  devIndicators: false,
   // Turbopack workspace root — needed because /home/z/my-project/bun.lock
   // (parent dir) confuses Next.js into treating the parent as workspace root.
   // We tell Turbopack explicitly: this package IS the root.

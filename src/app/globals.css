@@ -135,3 +135,12 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: oklch(0.5 0 0 / 50%);
 }
+
+/* Ocultar el indicador flotante de desarrollo / badge de Next.js */
+nextjs-portal,
+[data-nextjs-toast],
+[data-nextjs-dialog-overlay],
+[data-next-badge],
+div[class*="nextjs-toast"] {
+  display: none !important;
+}
